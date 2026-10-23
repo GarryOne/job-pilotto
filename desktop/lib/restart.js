@@ -17,8 +17,12 @@ export function createRestarter({app, log = () => {}, beforeExit = () => {}}) {
       pending = {how, options};
       if (how === 'exit') {
         // app.exit skips the quit guards that stop the engine's runs: a run still going (a pip install into the data folder) would keep the folder a reset or an import moves (Windows).
-        try { beforeExit(); } catch (error) { log(`restart: stopping runs failed: ${error.message}`); }
-        app.relaunch(options); app.exit(0);
+        // beforeExit may return a promise (an export's tar is stopped and awaited first): the exit waits for it, whatever it ends in.
+        const leave = () => { app.relaunch(options); app.exit(0); };
+        const failed = error => log(`restart: stopping runs failed: ${error.message}`);
+        let stopping;
+        try { stopping = beforeExit(); } catch (error) { failed(error); }
+        if (typeof stopping?.then === 'function') stopping.catch(failed).then(leave); else leave();
       } else app.quit();
       return true;
     },

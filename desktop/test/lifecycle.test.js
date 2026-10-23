@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {claimInstance, startWhenReady, installQuitHandling} from '../lib/lifecycle.js';
 
-function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = [], important = [], importantDone = Promise.resolve(), platform = 'darwin', ask = false, demo = false, smoke = false} = {}) {
+function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = [], important = [], importantDone = Promise.resolve(), platform = 'darwin', ask = false, demo = false, smoke = false, dataJob = false} = {}) {
   const calls = [], handlers = {};
   let drain, timeout;
   const idle = new Promise(resolve => { drain = resolve; });
@@ -15,6 +15,7 @@ function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = []
       stopRunning: () => calls.push('stop'), whenIdle: () => idle},
     terminals: {running: () => sessions, label: () => 'Company', shutdown: () => calls.push('shutdown')},
     critical: {labels: () => important, whenDone: () => importantDone},
+    dataRunning: () => dataJob, stopDataJob: () => { calls.push('stop-data'); dataJob = false; return Promise.resolve(); },
     shouldAskOnQuit: () => ask, askWhyLeaving: () => calls.push('ask'),
     showDialog: (_parent, options) => { calls.push(options.buttons); return choice; }, icon: () => ({}), getWindows: () => [window],
     toWindow: (...args) => calls.push(args), notify: (...args) => calls.push(args), onCancel: () => calls.push('cancelled'), later: (fn, ms) => { timeout = fn; assert.equal(ms, 300000); },
@@ -33,6 +34,19 @@ test('quit when done notifies, waits for idle, and allows the final quit without
 test('quit now freezes the queue before stopping work; cancel does neither', () => {
   const f = fixture({choice: 1}); f.quit(); assert.deepEqual(f.calls.slice(-3), ['freeze', 'stop', 'quit']);
   const cancel = fixture({choice: 2}); cancel.quit(); assert.ok(!cancel.calls.includes('quit')); assert.ok(!cancel.calls.includes('stop'));
+});
+test('quit now, and any other quit (will-quit), stop a running data job and wait for it before the app goes', async () => {
+  const now = fixture({choice: 1, dataJob: true}); now.quit();
+  assert.ok(!now.calls.includes('quit')); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(now.calls.slice(-3), ['stop', 'stop-data', 'quit']);
+  // an unasked quit (update install, last window closed): will-quit holds until the job is gone, then quits again
+  const other = fixture({busy: null, dataJob: true}); let prevented = false;
+  other.handlers['will-quit']({preventDefault: () => { prevented = true; }});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(prevented, true); assert.deepEqual(other.calls.slice(-2), ['stop-data', 'quit']);
+  other.handlers['will-quit']({preventDefault: () => assert.fail('the second pass must go through')});
+  assert.ok(other.calls.includes('shutdown'));
+  const idle = fixture({busy: null}); idle.handlers['will-quit']({preventDefault: () => assert.fail('no job, no hold')});
 });
 test('sessions-only keep opens the running session; stop quits; waiting sessions do not block', () => {
   const sessions = [{id: 's1', status: 'running'}];

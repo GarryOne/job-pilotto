@@ -322,7 +322,7 @@ function handleImportant(channel, label, handler) {
   ipcMain.handle(channel, (...args) => critical.during(label, () => handler(...args)));
 }
 // Every restart says why: app.exit skips 'will-quit', so without this line a restart looks like a silent exit (a Windows e2e relaunch, 6 Oct 2026).
-const restarter = createRestarter({app, log: message => appLog('window', message), beforeExit: () => pipeline.stopRunning()});
+const restarter = createRestarter({app, log: message => appLog('window', message), beforeExit: () => { pipeline.stopRunning(); return dataJob.stop(); }});
 function restartApp(reason, options) { restarter.restart(reason, options, {how: 'exit'}); }
 // How the app ended, in logs/app.log: a Windows e2e relaunch closed with no line at all (6 Oct 2026). No line after "start" now means the
 // process was killed from outside (nothing in the app can log that).
@@ -490,7 +490,7 @@ const {skipUntilNotion, focusReminder, resumeQueue, sessionNeedsYou} = createApp
 // Quitting decisions read current services, so they remain testable without global mocks.
 installQuitHandling({app, platform: process.platform,
   state: () => ({storage, window, telemetry, demo: DEMO, smoke: !!process.env.JOB_PILOTTO_SMOKE}),
-  pipeline, terminals, critical, shouldAskOnQuit: setupFunnel.shouldAskOnQuit,
+  pipeline, terminals, critical, stopDataJob: () => dataJob.stop(), dataRunning: () => !!dataJob.running(), shouldAskOnQuit: setupFunnel.shouldAskOnQuit,
   askWhyLeaving: () => toWindow('askWhyLeaving'),
   showDialog: (parent, options) => dialog.showMessageBoxSync(parent, options),
   icon: () => nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')),
