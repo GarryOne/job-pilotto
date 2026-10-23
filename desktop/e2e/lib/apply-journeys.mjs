@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fillState, launchBrowser, readForm} from './extension.mjs';
 import {writePrivate} from '../../lib/private-file.js';
+import {pressed, ticked} from './free-click.mjs';
 
 export async function runJourneys(ctx, h) {
   const {cv, dumpExtension, fail, forms, page} = h;
@@ -127,12 +128,11 @@ export async function runJourneys(ctx, h) {
     if (await tab.locator('#robot').isChecked()) problems.push('the extension ticked the sign-up page\'s box (it must leave that to the person)');
     // The person creates the account: typed fields (trusted input), the box ticked, Create account pressed. While the extension fills, its overlay holds the person's click (c09c6a8,
     // 19 Oct 2026), so the person waits for it to lift, as a real one would: a click made under it changes nothing.
-    await tab.waitForFunction(() => !document.getElementById('jobpilotto-fill-overlay'), null, {timeout: 60000}).catch(() => { problems.push('the fill overlay never lifted from the sign-up page'); });
     await tab.fill('#signup_email', 'e2e.person@example.com');
     await tab.fill('#signup_username', 'e2e-person');
     await tab.fill('#signup_password', 'Fictional-Pass-1234');
-    await tab.check('#robot');
-    await tab.click('#create_account');
+    await ticked(tab, '#robot');   // each waits for the overlay again and retries a click it swallowed (lib/free-click.mjs)
+    await pressed(tab, '#create_account');
     let state = null;
     for (let waited = 0; waited < 60000; waited += 500) { if (tab.url().startsWith(SIGNUP.formUrl)) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; } await pause(500); }
     if (state?.state !== 'done') problems.push(`the application form after the sign-up was not filled (at ${tab.url()}, state ${JSON.stringify(state)})`);

@@ -14,7 +14,7 @@ export const stepNeeds = applyNeeds;   // what a step needs when E2E_STEPS picks
 
 export const varies = true;
 export const minutes = 20;   // CI's job limit: a first attempt may use the 7-minute budget and the retry ('once more, to tell flaky from real') another 7, plus setup
-export const budgetMinutes = ci ? undefined : 10;   // a Mac's first run builds the workspace once with the wizard's path; CI keeps the default 7
+export const budgetMinutes = ci ? 9 : 10;   // a Mac's first run builds the workspace once with the wizard's path; CI: 24 Oct 2026 a 14-step run took ~6 min and its retry ran out of the default 7 (split the suite when it grows again)
 export const browser = true;
 export const engine = flowsEngine();   // the proxy answers the app's AI calls (CI and the matrix); LIVE=1: this Mac's Claude Code; LIVE_ENGINE overrides (lib/engine.mjs)
 export const macos = true;   // runs on a macOS runner: the real Chrome extension, opened through `open` as on a Mac (lib/plan.mjs runnerOf)
