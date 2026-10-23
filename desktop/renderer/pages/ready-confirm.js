@@ -23,7 +23,7 @@ export function confirmFill(ask) {
     if (ask.note) parts.push(el('p', 'muted', ask.note));
     if (ask.replaces) parts.push(el('p', 'message', `This replaces ${forms(ask.replaces)} from this night still waiting for you: open or finish ${ask.replaces === 1 ? 'it' : 'them'} first if you need ${ask.replaces === 1 ? 'it' : 'them'}.`));
     const foot = el('div', 'dialog-foot'), buttons = el('span', 'inline');
-    const no = el('button', 'ghost', 'Cancel'), yes = el('button', 'primary', ask.again ? 'Fill again' : 'Fill now');
+    const no = el('button', 'secondary', 'Cancel'), yes = el('button', 'primary', ask.again ? 'Fill again' : 'Fill now');
     no.id = 'ready-confirm-no'; yes.id = 'ready-confirm-yes'; no.type = yes.type = 'button';
     buttons.append(no, yes);
     foot.append(el('span', 'muted small', 'Nothing is submitted.'), buttons);

@@ -15,7 +15,7 @@ function build(strip) {
   const text = document.createElement('span'), track = document.createElement('span'), fill = document.createElement('span'), cancel = document.createElement('button');
   text.className = 'data-progress-text';
   track.className = 'score-track'; fill.className = 'score-fill'; track.append(fill);
-  cancel.className = 'ghost'; cancel.textContent = 'Cancel'; cancel.hidden = strip.dataset.progress === 'clear';   // a clear is not cancellable
+  cancel.className = 'secondary'; cancel.textContent = 'Cancel'; cancel.hidden = strip.dataset.progress === 'clear';   // a clear is not cancellable
   cancel.addEventListener('click', () => { cancel.disabled = true; window.pilot.dataCancel(); });
   strip.setAttribute('role', 'status');
   strip.replaceChildren(text, track, cancel);

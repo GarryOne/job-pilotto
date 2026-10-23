@@ -52,7 +52,7 @@ export function registerSystemHandlers(ctx) {
   ipcMain.handle('dataCancel', () => dataJob.cancel());
   ipcMain.handle('backupNow', () => backupNow('button'));
   // Clear my job list (src/clear_jobs.py): the counts first; the clear itself after a backup, and only if the backup was made.
-  ipcMain.handle('clearJobsPlan', (_, options) => DEMO ? {ok: true, clear: options?.clearDismissed ? 87 : 84, keep: options?.clearDismissed ? 9 : 12, dismissed: 3} : pipeline.clearJobs(storage, {...options, dryRun: true}).catch(error => ({ok: false, error: error.message})));
+  ipcMain.handle('clearJobsPlan', (_, options) => DEMO ? {ok: true, clear: 84, keep: 12, dismissed: 3} : pipeline.clearJobs(storage, {...options, dryRun: true}).catch(error => ({ok: false, error: error.message})));
   handleImportant('clearJobs', 'Clearing your job list', async (_, options) => {
     if (DEMO) return {ok: true, cleared: 84, kept: 12};
     const saved = await backupNow('clear job list');   // its own job, shown on the backup strip

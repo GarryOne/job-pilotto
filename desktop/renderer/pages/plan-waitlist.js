@@ -20,7 +20,7 @@ function dialog() {
   label.htmlFor = 'pro-waitlist-email';
   Object.assign(field, {id: 'pro-waitlist-email', type: 'email', placeholder: 'you@example.com', autocomplete: 'email'});
   const note = el('p', 'muted small', 'We\'ll e-mail you once when Pro opens. Nothing else.');
-  const msg = el('p', 'message', ''), cancel = el('button', 'ghost', 'Cancel'), join = el('button', 'primary', 'Join'), foot = el('div', 'dialog-foot'), buttons = el('span', 'inline');
+  const msg = el('p', 'message', ''), cancel = el('button', 'secondary', 'Cancel'), join = el('button', 'primary', 'Join'), foot = el('div', 'dialog-foot'), buttons = el('span', 'inline');
   msg.id = 'pro-waitlist-message'; cancel.id = 'pro-waitlist-cancel'; cancel.type = 'button'; join.id = 'pro-waitlist-join'; join.type = 'button';
   buttons.append(cancel, join);
   foot.append(el('span', ''), buttons);

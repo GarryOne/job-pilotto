@@ -60,7 +60,7 @@ export function boardDialog() {
   const never = el('p', 'muted small', 'Jobadabra never types your password.');
   const message = el('p', 'message', '');
   message.id = 'board-message';
-  const cancel = el('button', 'ghost', 'Cancel');
+  const cancel = el('button', 'secondary', 'Cancel');
   cancel.id = 'board-cancel'; cancel.type = 'button';
   const start = el('button', 'primary', 'Open the board');
   start.id = 'board-start'; start.type = 'button'; start.disabled = true;

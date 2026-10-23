@@ -1449,7 +1449,13 @@
               <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
                 <div><b>Export</b><p class="muted small">Save a copy of everything Jobadabra keeps on this computer: settings, profile, CVs, recordings, job list and history.</p>
                   <button class="secondary" id="export-data">Export data</button>
-                  <div class="data-progress" data-progress="export" hidden></div></div></div>
+                  <div class="data-progress" data-progress="export" hidden></div>
+                  <details class="troubleshoot"><summary>Export options</summary>
+                    <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, <span data-about-notion>Notion</span>, Telegram, GitHub)</span>
+                      <span class="muted small">For another computer. On this one your keys always come back; ticked, they're in the file in plain text: keep it private.</span></span></label>
+                    <label class="check-row"><input type="checkbox" id="export-accounts"><span><span>Include this profile's job-site accounts</span>
+                      <span class="muted small">Holds your job-site passwords in plain text: keep the file private. Left out, the accounts stay in this Mac's Keychain.</span></span></label>
+                  </details></div></div>
               <div class="choice-card"><span class="file-tile"><i data-icon="folder"></i></span>
                 <div><b>Import</b><p class="muted small">Restore from a Jobadabra export. Current data is backed up first.</p>
                   <button class="secondary" id="import-data" data-import>Import data</button>
@@ -1460,16 +1466,9 @@
                   <div class="data-progress" data-progress="clear" hidden></div>
                   <div class="clear-jobs-confirm" id="clear-jobs-confirm" hidden>
                     <p class="small" id="clear-jobs-counts"></p>
-                    <label class="check-row"><input type="checkbox" id="clear-jobs-dismissed"><span class="muted small">Also forget the jobs I dismissed myself (they come back as new)</span></label>
-                    <div class="panel-actions"><button class="ghost" id="clear-jobs-cancel">Cancel</button><button class="danger-solid" id="clear-jobs-go">Clear</button></div>
+                    <div class="panel-actions"><button class="secondary" id="clear-jobs-cancel">Cancel</button><button class="danger-solid" id="clear-jobs-go">Clear</button></div>
                   </div></div></div>
             </div>
-            <details class="troubleshoot"><summary>Export options</summary>
-              <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, <span data-about-notion>Notion</span>, Telegram, GitHub)</span>
-                <span class="muted small">For another computer. On this one your keys always come back; ticked, they're in the file in plain text: keep it private.</span></span></label>
-              <label class="check-row"><input type="checkbox" id="export-accounts"><span><span>Include this profile's job-site accounts</span>
-                <span class="muted small">Holds your job-site passwords in plain text: keep the file private. Left out, the accounts stay in this Mac's Keychain.</span></span></label>
-            </details>
             <p class="message" id="data-message"></p>
           </div>
           <div class="setting panel" id="setting-files">
@@ -1776,7 +1775,7 @@
     <div class="review-groups" id="rebuild-groups"><p class="message waiting">Comparing the draft with your current strategy…</p></div>
     <p class="muted small" id="rebuild-total"></p>
     <div class="dialog-foot">
-      <button class="ghost" id="replace-cancel" value="cancel" formnovalidate>Cancel</button>
+      <button class="secondary" id="replace-cancel" value="cancel" formnovalidate>Cancel</button>
       <button class="primary" id="replace-go" value="default" disabled>Apply selected</button>
     </div>
   </form>
@@ -1825,7 +1824,7 @@
   <ul class="tune-list" id="tune-list"></ul>
   <p class="message" id="tune-message"></p>
   <div class="dialog-foot"><span class="muted small">Only selected changes will be applied.</span>
-    <span class="inline"><button class="ghost" id="tune-cancel" type="button" hidden>Cancel</button><button class="primary" id="tune-apply" hidden>Apply changes</button></span></div>
+    <span class="inline"><button class="secondary" id="tune-cancel" type="button" hidden>Cancel</button><button class="primary" id="tune-apply" hidden>Apply changes</button></span></div>
 </dialog>
 <!-- Find jobs using your browser (owner, 7 Oct 2026): Run opens this; pick the sites, how many at a time, filter or not -->
 <dialog id="visits-dialog" class="save-dialog panel-dialog cv-dialog">
@@ -1844,7 +1843,7 @@
   <label class="check-row"><input type="checkbox" id="visits-filter" checked><span><span class="muted">Filter each site for my search first</span></span></label>
   <label class="task-count-field"><input id="visits-at-once" class="task-count" type="number" min="1" max="5" value="2" aria-label="How many sites at once" title="How many sites at once"><span class="task-count-unit">at a time</span></label>
   <div class="dialog-foot"><span class="muted small">Each site opens in Chrome, where the extension reads it.</span>
-    <span class="inline"><button class="ghost" id="visits-cancel" type="button">Cancel</button><button class="primary" id="visits-start" type="button" disabled>Read sites</button></span></div>
+    <span class="inline"><button class="secondary" id="visits-cancel" type="button">Cancel</button><button class="primary" id="visits-start" type="button" disabled>Read sites</button></span></div>
 </dialog>
 <!-- CV match: this job's posting against the CV (lib/match-check.js) -->
 <dialog id="match-dialog" class="save-dialog panel-dialog cv-dialog">
@@ -1975,7 +1974,7 @@
     <div class="dialog-foot">
       <button type="button" id="feedback-copy" class="secondary">Copy request</button>
       <button type="button" id="feedback-email" class="secondary">Open email</button>
-      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button class="secondary" value="cancel" formnovalidate>Cancel</button>
       <button id="feedback-save" class="primary" value="default">Save feedback</button>
     </div>
   </form>
@@ -2024,7 +2023,7 @@
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="refresh"></i></span><h2 id="rescore-title">Re-score older scores?</h2></div>
     <p class="dialog-lead" id="rescore-lead"></p>
     <div class="dialog-foot">
-      <button class="ghost" value="cancel">Cancel</button>
+      <button class="secondary" value="cancel">Cancel</button>
       <button class="primary" value="go" id="rescore-go">Re-score</button>
     </div>
   </form>
@@ -2043,7 +2042,7 @@
     </ol>
     <p class="muted small">Read-only: Jobadabra can read your mail and calendar to track replies and interviews, and never sends, changes or deletes anything. The sign-in stays on this computer, in its Keychain or Credential Manager.</p>
     <div class="dialog-foot">
-      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button class="secondary" value="cancel" formnovalidate>Cancel</button>
       <button id="google-warning-go" type="button" class="primary" value="default">Continue to Google</button>
     </div>
   </form>
@@ -2057,7 +2056,7 @@
     <p class="dialog-lead" id="allowance-lead"><span id="allowance-plan"></span>
       <span class="small">Your jobs, tracking, <span data-notion-only>Notion, </span>export and data all keep working.</span></p>
     <div class="dialog-foot">
-      <button class="ghost" value="cancel" formnovalidate>Not now</button>
+      <button class="secondary" value="cancel" formnovalidate>Not now</button>
       <button id="allowance-settings" type="button" class="primary" value="default">Open Plan settings</button>
     </div>
   </form>
@@ -2098,7 +2097,7 @@
     <input id="app-feedback-contact" type="text" maxlength="200" autocomplete="email">
     <p id="app-feedback-message" class="message"></p>
     <div class="dialog-foot">
-      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button class="secondary" value="cancel" formnovalidate>Cancel</button>
       <button id="app-feedback-send" class="primary" value="default">Send</button>
     </div>
   </form>
@@ -2151,7 +2150,7 @@
     </fieldset>
     <p id="happened-message" class="message"></p>
     <div class="dialog-foot">
-      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button class="secondary" value="cancel" formnovalidate>Cancel</button>
       <button id="happened-save" class="primary" value="default">Save</button>
     </div>
   </form>
@@ -2172,7 +2171,7 @@
     <p class="reassign-note muted" id="reassign-note"><i data-icon="link"></i><span id="reassign-help"></span></p>
     <p id="reassign-message" class="message"></p>
     <div class="dialog-foot">
-      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button class="secondary" value="cancel" formnovalidate>Cancel</button>
       <button id="reassign-save" class="primary" value="default">Save</button>
     </div>
   </form>
@@ -2281,7 +2280,7 @@
         <button type="button" class="link" id="lead-result-pick" hidden>Choose a job manually</button></div>
     </div>
     <div class="dialog-foot">
-      <button class="ghost" value="cancel" formnovalidate id="lead-cancel">Cancel</button>
+      <button class="secondary" value="cancel" formnovalidate id="lead-cancel">Cancel</button>
       <button type="button" class="ghost" id="lead-back" hidden>Back</button>
       <button class="primary" id="lead-go" value="default">Log activity</button>
     </div>
@@ -2301,7 +2300,7 @@
         <span><b>Fill in Chrome with the extension</b> <span class="badge-recommended">Recommended</span><br><span class="muted">Opens each job as a tab and fills forms that are right on the page. Seconds per form; stops at sign-in pages.</span></span></label>
     </fieldset>
     <p class="message" id="apply-message"></p>
-    <div class="actions"><button class="ghost" value="cancel">Close</button><button class="primary" id="apply-go" value="default">Start</button></div>
+    <div class="actions"><button class="secondary" value="cancel">Close</button><button class="primary" id="apply-go" value="default">Start</button></div>
   </form>
 </dialog>
 <script src="app.js" type="module"></script>

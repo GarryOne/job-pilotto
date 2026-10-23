@@ -49,7 +49,6 @@ def main(argv=None):
     sub.add_parser('calendar')   # the Calendar's jobs: Applications rows only, no search cache (a fraction of `jobs`)
     clearing = sub.add_parser('clear-jobs')   # Settings → Clear my job list (src/clear_jobs.py): found and scored jobs go, what you acted on stays
     clearing.add_argument('--dry-run', action='store_true')   # only the counts
-    clearing.add_argument('--clear-dismissed', action='store_true')   # also the jobs you dismissed yourself (default: kept)
     sub.add_parser('strategy')
     sub.add_parser('rescore-outdated')
     sub.add_parser('refresh-locations').add_argument('--url', default='')   # one job's refresh from its drawer; none = every active one
@@ -325,7 +324,7 @@ def main(argv=None):
             from . import clear_jobs
             from .store_access import run_stores
             stores, _ = run_stores(tracker)
-            keep = not args.clear_dismissed
+            keep = True   # the person's own dismissals always stay
             try:
                 result = clear_jobs.plan(db, stores, keep) if args.dry_run else {'ok': True, **clear_jobs.clear(db, stores, keep)}
             except Exception as error:  # noqa: BLE001 — shown to the person; the store is written first, so a refusal changed nothing local

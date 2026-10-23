@@ -17,7 +17,7 @@ export function pickFill(top, {start = 3} = {}) {
     head.append(tile, lead, close);
     const group = el('div', 'segmented'), list = el('ul', 'ready-confirm-list'), cost = el('p', 'muted ready-pick-cost');
     const foot = el('div', 'dialog-foot'), buttons = el('span', 'inline');
-    const no = el('button', 'ghost', 'Cancel'), yes = el('button', 'primary', 'Fill now');
+    const no = el('button', 'secondary', 'Cancel'), yes = el('button', 'primary', 'Fill now');
     no.id = 'ready-pick-no'; yes.id = 'ready-pick-yes'; no.type = yes.type = 'button';
     const paint = () => {
       const shown = top.picked.slice(0, count), prepare = shown.some(job => job.needsKit || job.needsCv);
