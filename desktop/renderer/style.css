@@ -2108,7 +2108,19 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .steps-privacy, .steps-version { display: grid; grid-template-columns: 18px 1fr; column-gap: 10px; align-items: start; margin: 0 12px 0 15px; padding: var(--sp-3) 0;
   border-top: 1px solid var(--rail-line); font-size: var(--fs-sm); line-height: 1.5; color: var(--on-rail-3); }
 .steps-privacy .icon, .steps-version .icon { width: 18px; height: 18px; justify-self: center; margin-top: 2px; }
-.steps-privacy strong { color: var(--on-rail); font-weight: 600; }
+.steps-privacy { align-items: center; cursor: pointer; width: calc(100% - 27px); background: none; border-width: 1px 0 0; border-style: solid; border-color: var(--rail-line);
+  font-family: inherit; text-align: left; border-radius: 0; }
+.steps-privacy span, .steps-version span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.steps-privacy:hover { color: var(--on-rail); }
+/* The rail is narrow: the note opens to the right of it, over the content, with its own x; closed by x, Esc or a click elsewhere. */
+.steps-privacy-wrap { position: relative; }
+.privacy-pop { position: absolute; z-index: 20; bottom: 0; left: calc(100% + 40px); width: 260px; display: flex; gap: var(--sp-2); align-items: flex-start;
+  padding: 10px 10px 10px 12px; border-radius: var(--r-md); background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong);
+  font-size: var(--fs-sm); line-height: 1.45; box-shadow: 0 8px 24px rgb(var(--shadow-rgb) / .25); }
+.privacy-pop[hidden] { display: none; }
+.privacy-pop p { margin: 0; flex: 1; }
+.privacy-pop .privacy-close { flex: none; width: 24px; height: 24px; color: var(--muted); }
+.steps-privacy:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: var(--r-sm); }
 .steps-foot .wizard-stuck { font-weight: 600; color: var(--on-rail); padding: 12px 12px; }
 
 /* The version under the setup sidebar: one quiet line with an info icon, cut with … if long (the full text on hover). */
