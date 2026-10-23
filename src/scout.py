@@ -446,13 +446,13 @@ def main():
             if not key:
                 raise SystemExit('--publish-index needs INDEX_PUBLISH_KEY')
             index_url = os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL
-            deadline = scout_overrun.publish_deadline(started)
+            deadline = min(scout_overrun.publish_deadline(started), time.monotonic() + scout_core.VERIFY_BUDGET_S)
             with scout_overrun.phase('reading what installs shared'):
                 contributions, shared_dead = fetched or fetch_contributions(index_url, key, with_nofeed=True)
             swiss_titles = []
             with scout_overrun.phase(f'checking every feed for the index'):
                 feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions, workers=24,
-                                                boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles, deadline=deadline)
+                                                boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles, deadline=deadline, carry=True)
             from . import scout_cells
             scout_cells.keep(db, feeds_out)   # the next run's ideas aim at the thinnest kind × country
             with scout_overrun.phase('market coverage and stats'):
