@@ -131,8 +131,8 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertNotIn('packaging', re.sub(r'#.*', '', job('windows')).replace('windows-smoke.mjs', ''))
         self.assertIn('windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke smoke', job('windows'))
         self.assertNotIn(' packaging', (pathlib.Path(__file__).resolve().parent.parent / '.github/workflows/windows-smoke.yml').read_text())   # the weekly run takes the default: full
-        self.assertIn('needs: [changes, build]', job('test-mac'))
-        self.assertIn('needs: [changes, windows]', job('test-windows'))
+        self.assertIn('needs: [changes, build, ai-ready]', job('test-mac'))
+        self.assertIn('needs: [changes, windows, ai-ready]', job('test-windows'))
         self.assertIn('fromJson(needs.changes.outputs.mac_matrix)', job('test-mac'))
         self.assertIn('fromJson(needs.changes.outputs.windows_matrix)', job('test-windows'))
         # A suite's Mac job and its Windows job share ONE concurrency group (the same real Notion page), and GitHub keeps one WAITING job per group: more than two contenders
@@ -169,6 +169,12 @@ class DesktopWorkflowTest(unittest.TestCase):
     def test_a_gate_that_planned_zero_suites_also_fails_the_run(self):
         job = WORKFLOW.split('\n  gate-ran:\n')[1].split('\n  prune:\n')[0]
         self.assertNotIn("count != '0'", job.split('steps:')[0], 'a zero-suite plan skips test-mac, which is the failure this job exists for')
+
+    def test_both_lanes_wait_for_one_ai_key_check(self):
+        for lane in ('test-mac', 'test-windows', 'gate-ran'):
+            job = WORKFLOW.split(f'\n  {lane}:\n')[1].split('\n    runs-on')[0]
+            self.assertIn('ai-ready', job, f'{lane} must wait for the AI key check')
+        self.assertIn('node desktop/e2e/key-preflight.mjs', WORKFLOW.split('\n  ai-ready:\n')[1].split('\n  test-mac:')[0])
 
 
 if __name__ == '__main__':

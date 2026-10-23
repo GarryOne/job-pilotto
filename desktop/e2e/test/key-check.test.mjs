@@ -88,3 +88,8 @@ test('describeRefusal: the first three refusals say the request-id, model, max_t
   assert.ok(!lines.join('\n').includes('secret-value'));
   assert.equal(keyFingerprint(''), 'none');
 });
+
+test('an empty credit balance (a 400 on the app-shaped call) stops the run with the API\'s own words', async () => {
+  const credit = async url => (/\/v1\/messages$/.test(url) ? {status: 400, json: async () => ({error: {message: 'Your credit balance is too low to access the Anthropic API.'}})} : {status: 200});
+  await assert.rejects(checkKeyAccepted({engine: 'api', key: 'k', fetchImpl: credit}), /credit balance is too low/);
+});

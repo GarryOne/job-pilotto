@@ -430,11 +430,25 @@ jobs:
             echo "::warning::Windows build failed and no earlier release has a Windows installer."
           fi
 
+  # One look at the AI key before ~60 suite jobs start: a refused key or an empty credit balance ("credit balance is too low") is one red line here, not a job each (run 11, 23 Oct 2026).
+  ai-ready:
+    name: AI key ready?
+    needs: [changes]
+    if: needs.changes.outputs.gate == 'true' && needs.changes.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
+      E2E_OPENAI_KEY: ${{ secrets.E2E_OPENAI_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: node desktop/e2e/key-preflight.mjs
+
   # E2E: the gate suites on this build, one box (a matrix) per lane. The suite job of e2e.yml with the gate's settings (fixed path, replayed AI answers, paid judge);
   # a copy so the graph shows one box, not e2e.yml's plan/report/approve jobs (owner, 7 Oct 2026: "I want it to literally look that clean"). Keep the two in step.
   test-mac:
     name: E2E · Mac + Linux · ${{ matrix.key }}
-    needs: [changes, build]
+    needs: [changes, build, ai-ready]
     if: needs.build.result == 'success' && needs.changes.outputs.gate == 'true' && needs.changes.outputs.count != '0'
     runs-on: ${{ matrix.os || 'macos-latest' }}   # Linux unless the suite needs the Mac (lib/plan.mjs runnerOf); a virtual display there
     timeout-minutes: ${{ matrix.minutes }}
@@ -642,7 +656,7 @@ jobs:
   # The Windows lane's E2E box: e2e-windows.yml's suite job with the gate's settings, the same suites as the Mac lane (planned once, in Anything new?).
   test-windows:
     name: E2E · Windows · ${{ matrix.key }}
-    needs: [changes, windows]
+    needs: [changes, windows, ai-ready]
     if: needs.windows.result == 'success' && needs.changes.outputs.gate == 'true' && needs.changes.outputs.count != '0'
     runs-on: windows-latest
     timeout-minutes: 45
@@ -962,12 +976,12 @@ jobs:
   # A plan of ZERO suites is the same failure (count '0' skips test-mac too), so it is not excluded here (24 Oct 2026).
   gate-ran:
     name: Gate ran?
-    needs: [changes, build, windows, test-mac, test-windows]
+    needs: [changes, build, windows, ai-ready, test-mac, test-windows]
     if: always() && needs.changes.outputs.gate == 'true' && ((needs.build.result == 'success' && needs.test-mac.result == 'skipped') || (needs.windows.result == 'success' && needs.test-windows.result == 'skipped'))
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "### ❌ The E2E gate was planned but did not run: no build was tested or approved. See the 'Plan the E2E suites' step of Anything new?." >> "$GITHUB_STEP_SUMMARY"
+          echo "### ❌ The E2E gate was planned but did not run: no build was tested or approved. See the 'Plan the E2E suites' step of Anything new?. Or the AI key was refused: see 'AI key ready?'." >> "$GITHUB_STEP_SUMMARY"
           echo "::error::The E2E gate was skipped after a green build."
           exit 1
 
