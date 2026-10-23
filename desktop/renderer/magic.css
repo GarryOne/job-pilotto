@@ -40,6 +40,8 @@
 .magic-stage { gap: var(--sp-4); }
 .magic-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--sp-4); }
 .magic-mini { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: var(--sp-3); margin: 0; }
+.magic-mini button.secondary { background: var(--teal-soft); border-color: var(--teal-line); color: var(--ink); font-weight: 600; }   /* more visible than a plain secondary, quieter than Start */
+.magic-mini button.secondary:hover { border-color: var(--teal); }
 .magic-mini p { margin: var(--sp-1) 0 0; }
 @media (prefers-reduced-motion: reduce) {
   .magic-twinkle, .magic-spark { animation: none; display: none; }
