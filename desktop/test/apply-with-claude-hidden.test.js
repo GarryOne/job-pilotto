@@ -15,7 +15,7 @@ test('renderer scripts: a line that names Apply with Claude is a comment or asks
   for (const file of walk('renderer').filter(name => name.endsWith('.js'))) {
     read(file).split('\n').forEach((line, index) => {
       if (!NAMED.test(line) || /^\s*(\/\/|\/\*|\*)/.test(line)) return;
-      found.push(`${file}:${index + 1}`);
+      found.push(`${file.replaceAll('\\', '/')}:${index + 1}`);   // Windows CI: compare paths with /
     });
   }
   assert.deepEqual(found.filter(spot => !spot.startsWith('renderer/pages/jobs-render.js')), [], 'visible text names Apply with Claude');
