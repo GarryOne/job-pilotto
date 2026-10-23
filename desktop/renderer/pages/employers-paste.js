@@ -20,7 +20,7 @@ function dialog() {
   label.htmlFor = 'emp-paste-text';
   Object.assign(field, {id: 'emp-paste-text', rows: 8, placeholder: 'Select all on the page, copy, and paste here. Or paste a public address (https://…).'});
   const note = el('p', 'muted small field-hint', 'A page behind a sign-in is never opened by the app: paste its text instead.');
-  const msg = el('p', 'message', ''), cancel = el('button', 'ghost', 'Cancel'), go = el('button', 'primary', 'Find companies'), foot = el('div', 'dialog-foot');
+  const msg = el('p', 'message', ''), cancel = el('button', 'secondary', 'Cancel'), go = el('button', 'primary', 'Find companies'), foot = el('div', 'dialog-foot');
   msg.id = 'emp-paste-message'; cancel.type = 'button'; go.type = 'button'; go.id = 'emp-paste-go';
   foot.append(cancel, go);
   box.append(head, lead, label, field, note, msg, foot);
