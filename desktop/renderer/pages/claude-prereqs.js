@@ -2,15 +2,15 @@
 // (owner, 9 Oct 2026: the wizard card is hidden with the switch off, so whoever turns it on later sees what to install there); both only with the switch on (claude-help.js).
 // Moved out of connections.js, which calls it at start-up and on window focus. Guarded by the desktop page shot tests (npm test).
 import {$} from './core.js';
-import {claudeHelp} from '../claude-help.js';
+import {resumeOffered} from '../claude-help.js';
 import {icon} from '../icons.js';
 
 export async function showClaudePrereqs() {
   const card = document.getElementById('claude-extra');   // the setup's Claude card: only with Claude help on (claude-help.js)
-  if (card) card.hidden = !claudeHelp();
+  if (card) card.hidden = !resumeOffered();
   const inSettings = document.getElementById('claude-prereqs-settings');
-  if (inSettings) inSettings.hidden = !claudeHelp();
-  if (!claudeHelp()) return;   // nothing to check while Claude help is off
+  if (inSettings) inSettings.hidden = !resumeOffered();
+  if (!resumeOffered()) return;   // nothing to check while Claude help is off
   const found = await window.pilot.claudePrereqs().catch(() => null);
   if (!found) return;
   const link = (href, text) => Object.assign(document.createElement('a'), {href, target: '_blank', textContent: text});

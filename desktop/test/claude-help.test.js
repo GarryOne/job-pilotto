@@ -36,7 +36,7 @@ test('the Claude install checklist is under the Settings switch too, shown only 
   const html = fs.readFileSync(new URL('index.html', RENDERER), 'utf8');
   assert.match(html, /<ul class="prereqs" id="claude-prereqs-settings" hidden><\/ul>/);   // the same list style as the wizard's, hidden until the switch is on
   const prereqs = fs.readFileSync(new URL('pages/claude-prereqs.js', RENDERER), 'utf8');
-  assert.match(prereqs, /inSettings\.hidden = !claudeHelp\(\);/);
+  assert.match(prereqs, /inSettings\.hidden = !resumeOffered\(\);/);
   assert.match(prereqs, /for \(const list of \[\$\('claude-prereqs'\), inSettings\]/);   // one checklist, drawn in both places
   assert.match(prereqs, /window\.addEventListener\('claude-help', \(\) => showClaudePrereqs\(\)\);/);   // turned on: it shows at once
 });

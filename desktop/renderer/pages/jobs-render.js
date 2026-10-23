@@ -1,7 +1,7 @@
 // Jobs page, the list: renderJobs (rows, filters, row actions), In conversation, the stuck banner, loading state, kit label. Guarded by: test/count-flash.test.js.
 import {ai} from '../ai-name.js';
 import {closeMenu, el, isInteractiveTarget, moreButton, pill, tag} from '../components.js';
-import {claudeHelp} from '../claude-help.js';
+import {resumeOffered} from '../claude-help.js';
 import {columnOf} from '../jobs-board-rules.js';
 import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
@@ -235,7 +235,7 @@ export function renderJobs() {
           if (result.ok) { shared.openedInChrome.add(pageKey(job.url)); renderJobs(); } else toastMessage('Could not open the filled form', result.error || 'Try again from Actions → Ready to send.');
         });
         box.append(fill);
-        if (jobsState.claudeReady && claudeHelp()) {
+        if (jobsState.claudeReady && resumeOffered()) {
           const started = claudeStarted.has(pageKey(job.url));
           menu.push({icon: 'bot', label: started ? 'Claude is applying' : 'Apply with Claude', disabled: started,
             title: started ? 'A Claude session is filling this one in its window: answer it there' :

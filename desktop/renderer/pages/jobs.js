@@ -1,7 +1,7 @@
 // Jobs: loading and reloading the list, adding jobs, init(); the pieces are jobs-state/-render/-fit/-lead/-questions.js. Guarded by: search-changed, live-status-line, live-count, activity-selection-kept tests.
 import {badgeLabel} from '../badge-label.js';
 import {setCount} from '../components.js';
-import {claudeHelp} from '../claude-help.js';
+import {resumeOffered} from '../claude-help.js';
 import {applicationStats, inboundCount, inProcess, jobCounts, statClick, takenDown, toReview} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {refreshBusy, showSearchChanged, wireSearchChanged} from '../search-changed.js';
@@ -335,7 +335,7 @@ export async function init() {
   $('apply-open').addEventListener('click', () => {
     message('apply-message', '');
     // The extension first; Claude is a choice only with Claude help on (claude-help.js), and never the preset one.
-    document.querySelector('input[name="apply-mode"][value="agents"]').closest('label').hidden = !(jobsState.claudeReady && claudeHelp());
+    document.querySelector('input[name="apply-mode"][value="agents"]').closest('label').hidden = !(jobsState.claudeReady && resumeOffered());
     document.querySelector('input[name="apply-mode"][value="chrome"]').checked = true;
     $('apply-dialog').showModal();
   });
