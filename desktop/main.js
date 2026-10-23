@@ -66,8 +66,8 @@ import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
 import * as reset from './lib/reset.js';
 import {createDataJob} from './lib/data-job.js';
-import * as files from './lib/files.js';
-import * as letters from './lib/cover-letter.js';
+import {createCvSync} from './lib/cv-sync.js';
+import {installCrashMonitors} from './lib/crash-monitors.js';
 import * as backup from './lib/backup.js';
 import * as notionGate from './lib/notion-gate.js';
 import * as notionWorkspace from './lib/notion-workspace.js';
@@ -308,15 +308,7 @@ let resetDone = null;
 // What the form's panel shows about a job's CV: tailored already, or being tailored now (jobs whose Tailor CV was asked from the panel).
 const tailoring = new Set();
 const cvOf = url => ({tailored: !!cvlib.forUrl(storage, url), working: tailoring.has(server.pageKey(url)), status: tailorStatus.statusOf(url)});
-// The CV in Notion (once per version) and the weekly backup of Mac-only files: failures are logged, never block.
-function syncCv() {
-  if (DEMO) return;
-  files.syncCv(storage).then(done => done.uploaded && console.log(`CV saved to your Notion Profile (${done.uploaded})`))
-    .catch(error => console.error(`CV not saved to Notion: ${error.message}`));
-  // The approved cover letter too, once per version (lib/files.js): one approved with the data on this Mac reaches Notion after a move.
-  files.coverLetterToProfile(storage, letters.pdfPath(storage)).then(caption => caption && appLog('cover-letter', 'PDF saved to the Notion Profile', {caption}))
-    .catch(error => appLog('cover-letter', 'PDF not saved to Notion', {error: error.message}));
-}
+const syncCv = createCvSync({DEMO, getStorage: () => storage});   // lib/cv-sync.js
 const {dataJob, backupNow} = createDataJob({toWindow, backupWith: options => backup.run(storage, {version: about?.label || '', ...options}), appLog});   // one export, import or backup at a time, its progress for the window (lib/data-job.js)
 try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); resetDone = {failed: error.message}; }
 
@@ -377,18 +369,7 @@ function mediaAccess(type) {
 // through ScreenCaptureKit behind these switches; without them (or without Screen Recording permission)
 // the recorder falls back to the microphone alone.
 app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
-// Electron's desktopCapturer rejects an internal promise ("Failed to get sources") when macOS hasn't allowed
-// screen capture, even though the display-media handler catches it; that one is expected (the recorder shows
-// the permission panel), so it isn't logged. Every other unhandled rejection still is.
-process.on('unhandledRejection', reason => {
-  if (String(reason?.message || reason) === 'Failed to get sources.') return;
-  console.error('Unhandled rejection:', reason);
-  telemetry?.record('crash', {where: 'main', type: reason?.name || 'Rejection', message: reason?.message || String(reason), stack: reason?.stack});
-});
-// A crash in the main process, reported without changing what Electron does with it (the monitor only watches).
-process.on('uncaughtExceptionMonitor', error => {
-  telemetry?.record('crash', {where: 'main', type: error?.name || 'Error', message: error?.message || String(error), stack: error?.stack});
-});
+installCrashMonitors({getTelemetry: () => telemetry});   // lib/crash-monitors.js
 
 startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(), createWindow, start: () => {
   if (offerMove({app, dialog})) return false;  // moving to Applications: Electron quits and opens the moved copy
