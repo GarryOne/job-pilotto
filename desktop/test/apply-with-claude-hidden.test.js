@@ -43,7 +43,7 @@ test('main process: a notification never falls back to the name Apply with Claud
 });
 
 test('class: every main-process path that starts Apply with Claude refuses while the flag is off', () => {
-  assert.match(read('main.js'), /const startClaude = async \(url, details = null\) => !SHOW_RESUME_CLAUDE \?/);   // the applyWithClaude IPC and the take-over
+  assert.match(read('main.js'), /const startClaude = async \(url, details = null\) => !claudeFamily\(storage\) \?[^]*\n  : !SHOW_RESUME_CLAUDE \?/);   // the applyWithClaude IPC and the take-over
   assert.match(read('lib/apply-handlers.js'), /if \(agents && !SHOW_RESUME_CLAUDE\) return/);   // the batch dialog's agents mode
   assert.match(read('lib/session-handlers.js'), /if \(how === 'claude' && !SHOW_RESUME_CLAUDE\) return/);   // Start again with Claude
   for (const file of walk('lib').filter(name => name.endsWith('.js'))) {   // nothing else calls the launcher: a new caller must be added here, gated
