@@ -5,16 +5,19 @@ import {el, pill, tile} from '../components.js';
 import {$, message, show} from './core.js';
 import {goStep} from './wizard.js';
 import {shared} from './shared.js';
-import {HELPER, NAME, NEWS, STORED, SUBTITLE, model} from '../hosted-words.js';
+import {HELPER, NAME, NEWS, NEWS_HINT, STORED, SUBTITLE, model} from '../hosted-words.js';
+import {alwaysOnCard} from '../hosted-step-parts.js';
 
 export const HEADLINE = 'New matching jobs every morning, even when your Mac is off';
 
-function switchRow(id, label, checked) {
+function switchRow(id, label, checked, hint = '') {
   const input = Object.assign(document.createElement('input'), {type: 'checkbox', id, checked});
   input.setAttribute('aria-label', label);
   const row = el('div', 'switch-row'), toggle = el('span', 'switch', input);
   toggle.append(document.createElement('span'));
-  row.append(toggle, el('span', '', label));
+  const words = el('span');
+  words.append(...(hint ? [el('b', '', label), el('span', 'muted small', hint)] : [label]));
+  row.append(toggle, words);
   return row;
 }
 // The e-mail field as the AI step draws its key field (.step-field: the label above a full-width input), with a helper line under it.
@@ -34,11 +37,14 @@ export function mountStep() {
   const head = el('header', 'view-head step-head'), text = el('div');
   text.append(el('span', 'eyebrow', 'Step 4 of 5'), el('h1', '', HEADLINE), el('p', 'muted subtitle', 'A short list of what is new, by e-mail, and in the app when you open it.'));
   head.append(text);
-  const body = el('div', 'panel'), actions = el('div', 'actions');
+  const actions = el('div', 'actions');
   actions.append(button('hosted-skip', 'Skip', 'ghost'), button('hosted-go', 'Turn on Always on', 'primary'));
   const note = el('p', 'message'); note.id = 'hosted-message';
-  body.append(switchRow('hosted-daily', 'Search for me every day', true), emailField('hosted-email'), switchRow('hosted-news', NEWS, true), el('p', 'muted small', STORED), note);
-  step.append(head, body, actions);
+  // Two cards: the daily search (switch + e-mail), and the product news as its own consent, never tied to the search.
+  const search = alwaysOnCard('A short list of what is new, in your inbox and in the app.', switchRow('hosted-daily', 'Search for me every day', true, 'Runs on our servers, with your Mac on or off'), emailField('hosted-email'));
+  const news = el('div', 'setting panel roomy');
+  news.append(switchRow('hosted-news', NEWS, true, NEWS_HINT));
+  step.append(head, search, news, el('p', 'muted small', STORED), note, actions);
   document.querySelector('.step[data-step="extras"]').before(step);
   const item = el('li', '', 'Always on'); item.dataset.step = 'hosted';
   document.querySelector('#step-list li[data-step="extras"]').before(item);
