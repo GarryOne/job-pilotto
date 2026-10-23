@@ -11,7 +11,7 @@ import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from . import contribute, pool_tags, regions, role_kinds
+from . import contribute, pool_tags, regions, role_kinds, scout_carry
 from .notion import cron_runs
 from .sources import ats, careers, feeds
 from .scout_core import OUTCOMES, ensure_tables, _get_text, clean_name, key_for, now
@@ -121,7 +121,7 @@ def fetch_boards(base_url, key, get=None):
         return []
 
 
-def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=(), swiss_titles=None, deadline=None):
+def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=(), swiss_titles=None, deadline=None, carry=False):
     """Every feed we know (starter list + what this scout found), fetched once: [{company, ats, slug, tier, quality,
     jobs, checked}]. A feed that doesn't answer is left out (it comes back when it does); returns (feeds, failed)."""
     ensure_tables(db)
@@ -141,7 +141,7 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
     def check(item):
         (system, slug), meta = item
         if deadline is not None and time.monotonic() > deadline:
-            return {'skipped': True}
+            return {'skipped': True, 'ats': system, 'slug': slug}
         try:
             jobs = fetch(system, slug)
             if swiss_titles is not None:   # for the market coverage: the titles of this feed's jobs in Swiss places
@@ -168,16 +168,23 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
         except Exception as error:  # noqa: BLE001 — a dead feed is reported, not fatal
             return {'company': meta['company'], 'ats': system, 'slug': slug, 'error': f'{type(error).__name__}: {error}'}
 
+    items = scout_carry.order(db, list(known.items())) if carry else list(known.items())
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        results = list(pool.map(check, known.items()))
+        results = list(pool.map(check, items))
     skipped = sum(1 for r in results if r.get('skipped'))
+    left_over = [(r['ats'], r['slug']) for r in results if r.get('skipped')]
     if skipped:
-        print(f'Scout: the time for checking feeds ran out; {skipped} of {len(results)} feeds were not checked and are left out of this index')
+        print(f'Scout: the time for checking feeds ran out; {skipped} of {len(results)} feeds were not read this run' +
+              ('; those verified in the last %d days are carried over from their last read' % scout_carry.CARRY_DAYS if carry else ' and are left out of this index'))
     answered = [r for r in results if 'error' not in r and not r.get('skipped')]
     failed = [r for r in results if 'error' in r]
     quiet, fresh = health(db, answered, today, failed)
     kept = sorted(({**r, 'fresh': fresh[(r['ats'], r['slug'])]} for r in answered if (r['ats'], r['slug']) not in quiet),
                   key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
+    if carry:
+        scout_carry.keep(db, kept, today)
+        kept += scout_carry.carried(db, left_over, today)
+        kept.sort(key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
     return kept, failed
 
 

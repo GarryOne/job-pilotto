@@ -34,7 +34,7 @@ env:
 jobs:
   scout:
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 20   # owner, 23 Oct 2026: 15-20 minutes; the feeds are verified in slices (src/scout_carry.py)
     env:
       PYTHONUNBUFFERED: '1'   # 22 Oct 2026: a cancelled run lost every line the scout had printed but not flushed ("no log line for 37 min")
     steps:
@@ -81,7 +81,7 @@ jobs:
         with: {runtime: python, mode: both}
       - name: Every job board Common Crawl has seen (once per new crawl)
         continue-on-error: true   # the archive being slow must never cost the day's index
-        timeout-minutes: 8   # 21 Oct 2026: its index answered 504 to every query and the retries took 27 min, twice; the crawl is only marked read when every query answers
+        timeout-minutes: 3   # 21 Oct 2026: its index answered 504 to every query and the retries took 27 min, twice; the crawl is only marked read when every query answers
         run: python ops/discovery/commoncrawl.py --db data/jobs.sqlite
       - name: Rank the queue by each source's measured yield
         run: python ops/discovery/priorities.py --db data/jobs.sqlite
