@@ -6,6 +6,7 @@ import {shared} from './shared.js';
 import {toastMessage} from './startup.js';
 import {NOTES, TOPUP_NOTE, planView, warnNow} from '../plan-view.js';
 import {signinPart} from './plan-signin.js';
+import {BADGE} from '../pro-promise.js';
 
 const REFRESH_MS = 10 * 60 * 1000;
 
@@ -18,12 +19,12 @@ function render(view) {
   const body = $('plan-body');
   body.replaceChildren();
   if (view.kind === 'upgrade') {
-    const cards = el('div', 'inline', '');
+    const cards = el('div', 'plan-packages', '');
     for (const pack of view.packages) {
       const card = el('div', 'summary-card', '');
       const price = el('p', 'panel-lead', '');
       if (pack.list) price.append(el('s', 'muted', pack.list), ' ');
-      price.append(el('strong', '', pack.price), ' one-time payment, no subscription');
+      price.append(el('strong', '', pack.price), ' ', el('span', 'ui-pill tone-good', BADGE));
       const pay = el('button', pack.kind === 'pro-ai' ? 'primary' : 'secondary', pack.button);
       pay.addEventListener('click', () => buy(pack.kind));
       card.append(el('h4', '', pack.name), price, el('ul', 'plan-list', ''), pay);
