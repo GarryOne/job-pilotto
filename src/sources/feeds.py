@@ -86,12 +86,19 @@ def triage(jobs):
     titles = [job['title'] for job in best_first(asked)]   # sorted after the filter: a first search lists ~60,000 jobs, a few thousand are asked about
     if not titles or features.disabled('title_triage') or not engine.ready():
         return
+    here = [job['title'] for job in best_first(asked) if in_my_place(job)]   # located in your places: asked first, and past the clock (time_budget.local_titles)
     try:
         from ..ai import title_triage
+        _triaged().update(title_triage.decide(here, _SEARCH, local=True) if here else {})
         _triaged().update(title_triage.decide(titles, _SEARCH))
     except Exception as error:  # noqa: BLE001 — not sorted this run: the exact words only, said
         print(f'Warning: job titles not sorted by {providers.who()} ({reason(error)}): only your role words match this run')
         detail('sources', error)
+
+
+def in_my_place(job):
+    """The job is located in one of your places (Claude's 'best' answer, or the place words name it), not merely remote anywhere."""
+    return place_of(job) == 'best' or mentions(PLACE, country_codes.name(job.get('location') or ''))
 
 
 def excluded_title(title):

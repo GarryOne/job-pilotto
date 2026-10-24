@@ -53,15 +53,18 @@ def known(search):
     return batch_scope.view('titles_store', _load).get(_key(search)) or {}
 
 
-def decide(titles, search, client=None):
-    """Ask about the titles not decided yet for this search (at most MAX_NEW), keep the answers; returns {title: fits} for all known."""
+def decide(titles, search, client=None, local=False):
+    """Ask about the titles not decided yet for this search (at most MAX_NEW), keep the answers; returns {title: fits} for all known.
+    local: these titles are of jobs in the user's own places; the search's first few are sorted whatever the clock says (src/time_budget.py)."""
     from . import engine
     key, decided = _key(search), dict(known(search))
     ask = list(dict.fromkeys(t for t in (_norm(t) for t in titles) if t and t not in decided))[:MAX_NEW]
     from .. import time_budget as budget
     # A batch this refresh can finish, in whole rounds of calls (src/time_budget.py); the rest is asked next time. 18 Oct 2026, persona runs: paced
     # per title (0.5 s at least), a refresh planned "28 of 600 titles" for its 3 minutes, sorted them in one 7 s call and left 572 waiting.
-    ask = ask[:budget.in_calls('title_rounds', len(ask), BATCH, engine.PARALLEL, noun='title(s)')]
+    taken = budget.in_calls('title_rounds', len(ask), BATCH, engine.PARALLEL, noun='title(s)')
+    forced = budget.local_titles(len(ask) - taken) if local and taken < len(ask) else 0   # past the clock: local titles only
+    ask, sure = ask[:taken + forced], set(ask[:taken + forced])
     if not ask:
         return decided
     client = client or engine.client(action='title_triage')
@@ -79,7 +82,7 @@ def decide(titles, search, client=None):
     late = [0]   # titles of batches not started: the search's time was up (src/time_budget.py); the next search asks about them
 
     def one(batch):
-        if budget.over('titles', key=batch[0]):
+        if budget.over('titles', key=batch[0]) and not (local and forced and sure.issuperset(batch)):
             with lock:
                 late[0] += len(batch)
             return
