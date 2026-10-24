@@ -70,14 +70,15 @@ export async function run(ctx) {
   const extensionDir = copyExtension(appPort);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-visits-chromium-'));
   const rules = [`MAP ${ALLOWED} 127.0.0.1:${sites.address().port}`, `MAP ${OTHER} 127.0.0.1:${sites.address().port}`, 'MAP * ~NOTFOUND , EXCLUDE 127.0.0.1 , EXCLUDE localhost'].join(', ');
-  const context = await chromium.launchPersistentContext(profile, {
-    ...browserChannel(), headless: false, ignoreHTTPSErrors: true, ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
-    args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
-      `--host-resolver-rules=${rules}`, '--ignore-certificate-errors', '--no-first-run', '--no-default-browser-check'],
-  });
-  const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
+  let context, worker;
   const reads = () => app.calls.filter(call => call.path === '/extension/visit-read');
   try {
+    context = await chromium.launchPersistentContext(profile, {
+      ...browserChannel(), headless: false, ignoreHTTPSErrors: true, ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
+      args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
+        `--host-resolver-rules=${rules}`, '--ignore-certificate-errors', '--no-first-run', '--no-default-browser-check'],
+    });
+    worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
     await ctx.run('the extension starts and reaches the stand-in app, never the user\'s own (a different port)', async () => {
       if (!worker) throw new Error('the extension\'s worker did not start');
       if (appPort === 47111) throw new Error('the test app must not use the live app\'s port');
@@ -133,7 +134,7 @@ export async function run(ctx) {
       if (report.jobs !== 3) throw new Error(`read ${report.jobs} jobs, expected 3`);
     });
   } finally {
-    await context.close().catch(() => {});
+    await context?.close().catch(() => {});
     app.server.close();
     sites.close();
   }

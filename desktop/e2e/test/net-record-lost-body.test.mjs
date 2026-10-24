@@ -107,9 +107,10 @@ test('on a real page that submits a form from an XHR answer and leaves, the answ
     res.writeHead(404); res.end();
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
   const sizes = [];
+  let browser;
   try {
+    browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
     for (let run = 0; run < 8; run += 1) {
       const context = await browser.newContext(), recorder = netRecorder(context, {startedAt: Date.now()}), tab = await context.newPage();
       await recorder.ready();   // the recorder's DevTools session on the page is attached before the page does anything (a busy machine attaches it late)
@@ -121,7 +122,7 @@ test('on a real page that submits a form from an XHR answer and leaves, the answ
       sizes.push(recorder.result().entries.find(entry => entry.url.endsWith('/payload'))?.size);
       await context.close();
     }
-  } finally { await browser.close(); server.close(); }
+  } finally { await browser?.close(); server.close(); }
   assert.deepEqual(sizes, Array(8).fill(21), 'the XHR answer is in every recording');
 });
 
@@ -135,15 +136,16 @@ test('a reply that stays open (an event stream) never makes the page wait for th
     res.writeHead(404); res.end();
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
+  let browser;
   try {
+    browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
     const context = await browser.newContext(), recorder = netRecorder(context, {startedAt: Date.now()}), tab = await context.newPage();
     await recorder.ready();
     await tab.goto(`http://site.example.test:${server.address().port}/`);
     await tab.waitForFunction(() => document.getElementById('t').textContent !== 'wait', null, {timeout: 8000});
     const headersMs = Number(await tab.textContent('#t'));
     assert.ok(headersMs < 1000, `the stream's headers reached the page in ${headersMs} ms (the stream lasts 4000 ms)`);
-  } finally { await browser.close(); server.close(); }
+  } finally { await browser?.close(); server.close(); }
 });
 
 test('a lost redirect, font or picture body is not an empty answer; a lost XHR, script or page body still is', () => {
