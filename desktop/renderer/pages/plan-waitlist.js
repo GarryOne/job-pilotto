@@ -5,6 +5,7 @@ import {icon} from '../icons.js';
 import {$, message, show} from './core.js';
 import {shared} from './shared.js';
 import {INCLUDED, ALWAYS_ON} from '../plan-view.js';
+import {BADGE} from '../pro-promise.js';
 import {PRO_CHECKOUT, PRO_PRICE, showsProWaitlist} from '../plan-line.js';
 
 export const PRO_FEATURES = [...INCLUDED, ALWAYS_ON];
@@ -60,9 +61,9 @@ export function showProCard(state = {}) {
   show(card, showsProWaitlist(state));
   if (card.hidden) return;
   const joined = shared.state?.settings?.proWaitlist?.email;
-  $('pro-waitlist-pill').textContent = `${PRO_PRICE} one-time`;
+  $('pro-waitlist-pill').textContent = `from ${PRO_PRICE}`;
   const body = $('pro-waitlist-body');
-  body.replaceChildren(el('p', 'panel-lead', 'One-time payment, no subscription.'), el('ul', 'plan-list', ''));
+  body.replaceChildren(el('p', 'panel-lead', el('span', 'ui-pill tone-good', BADGE)), el('ul', 'plan-list', ''));
   body.lastChild.append(...PRO_FEATURES.map(text => el('li', '', text)));
   if (joined) { body.append(el('p', 'plan-joined', `You're on the waitlist (${joined})`)); body.lastChild.id = 'pro-waitlist-joined'; return; }
   const button = el('button', 'primary', PRO_CHECKOUT ? 'Upgrade to Pro' : 'Join the Pro waitlist');

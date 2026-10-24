@@ -3,11 +3,12 @@
 // shows the same `used` and `percent`, so the two can never disagree (0 of 40 there vs 40 of 40 here, 6 Oct 2026). The daily goal on
 // Focus (applications today) is a different thing that resets each day and fills up. null when licensed: there is nothing to count.
 import {byWhere} from './store-name.js';
+import {promise} from './pro-promise.js';
 export function chip(state) {
   if (state?.license?.kind === 'pro') {   // a Pro account: the AI credit left, a thin bar, red from 10%
     const percent = state.pro?.creditPercent;
     return {plan: 'Pro', text: percent == null ? 'Pro plan' : `AI credit ${percent}%`, tone: (state.pro?.warn ?? 99) <= 10 ? 'bad' : 'info', percent: Math.max(2, percent ?? 100), left: 0, used: state.used || 0,
-      title: 'Pro: no application limit. The bar is the AI credit left; your own AI key is unlimited and saves it.'};
+      title: `Pro (${promise()}): no application limit. The bar is the AI credit left; your own AI key is unlimited and saves it.`};
   }
   if (!state || state.licensed) return null;
   const left = Math.max(0, (state.limit || 0) - (state.used || 0));
@@ -16,8 +17,8 @@ export function chip(state) {
   const days = `${state.daysLeft} day${state.daysLeft === 1 ? '' : 's'} left`;
   if (state.ended) {
     return {plan: 'Free plan', text: 'Free period over', tone: 'bad', percent: 100, left, used,
-      title: `Free plan: ${state.used} of ${state.limit} applications used and the free days are over. New applications, kits and searches are paused. ${byWhere('Tracking, Notion and export keep working.', 'Tracking and export keep working.')} A license key lifts the limit.`};
+      title: `Free plan: ${state.used} of ${state.limit} applications used and the free days are over. New applications, kits and searches are paused. ${byWhere('Tracking, Notion and export keep working.', 'Tracking and export keep working.')} A license key lifts the limit. Pro is a ${promise()}.`};
   }
   return {plan: 'Free plan', text: `${used} of ${state.limit} applications used`, tone: left <= 5 ? 'bad' : 'info', percent, left, used,
-    title: `Free plan: ${state.used} of ${state.limit} applications used · ${days}. Free until you reach ${state.limit} applications and 60 days have passed, whichever comes later; then Pro (coming soon). (Your daily goal on Focus is separate.)`};
+    title: `Free plan: ${state.used} of ${state.limit} applications used · ${days}. Free until you reach ${state.limit} applications and 60 days have passed, whichever comes later; then Pro, a ${promise()} (coming soon). (Your daily goal on Focus is separate.)`};
 }
