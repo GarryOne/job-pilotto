@@ -6,6 +6,10 @@ import {findItem, measure, setWords, resetItem} from './pdf-edit/layout.js';
 import {markersOf, restack} from './pdf-edit/stack.js';
 
 const plain = s => String(s || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+// A summary's paragraphs and list lines, as the import keeps them: one per line, a list line led by "- " (or another typed marker) whose
+// marker the page draws on its own. Each is found and re-set on its own lines.
+const LIST = /^[-–•*·]\s+/;
+export const summaryParts = s => String(s || '').split(/\n+/).map(line => plain(line.replace(LIST, ''))).filter(Boolean);
 
 // Every item of the CV that can be edited in place. -> [{where, kind, j, r, text, shows, para}] (para: how it is set)
 export function itemsOf(doc, base) {
@@ -16,7 +20,7 @@ export function itemsOf(doc, base) {
     if (shows) for (const {p, k} of shows) claimed.add(`${p}:${k}`);
     out.push({where, text: plain(text), shows, para: shows ? measure(doc, shows) : null, ...extra});
   };
-  take('Summary', base.summary, {kind: 'summary'});
+  summaryParts(base.summary).forEach((text, n) => take('Summary', text, {kind: 'summary', n}));
   (base.jobs || []).forEach((job, j) => (job.roles || []).forEach((role, r) => {
     const where = `${job.company} · ${role.title}`;
     (role.bullets || []).forEach((text, i) => { if (!role.extra?.includes(i)) take(where, text, {kind: 'bullet', j, r, i}); });
@@ -26,14 +30,16 @@ export function itemsOf(doc, base) {
 }
 
 // How many characters each item may take on its lines (for the tailoring prompt): its length scaled by the room left on its lines.
+// A summary in several paragraphs gets summaryParts (one per paragraph, its own length when it is not on the page) instead of summary.
 export function roomOf(items) {
-  const room = {summary: null, jobs: {}};
+  const room = {summary: null, jobs: {}}, parts = items.filter(i => i.kind === 'summary');
+  if (parts.length > 1) room.summaryParts = parts.map(i => i.text.length);
   for (const item of items) {
     if (!item.para) continue;
     const {lines, right, x0} = item.para;
     const used = lines.reduce((s, l) => s + l.x1 - l.x0, 0), free = lines.reduce((s, l, i) => s + right - x0(i), 0);
     const chars = Math.floor(item.text.length * Math.max(1, free / Math.max(used, 1)));
-    if (item.kind === 'summary') room.summary = chars;
+    if (item.kind === 'summary') { if (room.summaryParts) room.summaryParts[item.n] = chars; else room.summary = chars; }
     else if (item.kind === 'bullet') ((room.jobs[item.j] ??= {})[item.r] ??= {})[item.i] = chars;
   }
   return room;
@@ -54,8 +60,10 @@ export function planInPlace(doc, base, review) {
     plan.remove.push(...r.remove); plan.add.push(...r.add); changed++;
     boxes.push(...r.add.map(a => ({...a.box, mark, before: item.text})));
   };
-  const summary = items.find(i => i.kind === 'summary');
-  if (summary && plain(review.summary) !== summary.text) set(summary, review.summary, 'reworded');
+  const summary = items.filter(i => i.kind === 'summary'), lines = summaryParts(review.summary);
+  if (summary.length === 1 && plain(review.summary) !== summary[0].text) set(summary[0], plain(review.summary), 'reworded');
+  else if (summary.length > 1 && lines.length !== summary.length) { if (lines.join(' ') !== summary.map(i => i.text).join(' ')) keep('Summary', 'the new summary has another number of paragraphs'); }
+  else if (summary.length > 1) summary.forEach((item, n) => { if (lines[n] !== item.text) set(item, lines[n], 'reworded'); });
 
   (base.jobs || []).forEach((job, j) => (job.roles || []).forEach((role, r) => {
     const tailored = review.jobs?.[j]?.roles?.[r];

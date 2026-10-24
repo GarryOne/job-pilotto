@@ -1,5 +1,6 @@
 // Makes the made-up CV look-alikes the in-place tailoring is tested on (lib/cv-inplace.js; test/cv-inplace.test.js). Run by hand, once:
 //   npx electron test/fixtures/cv-shapes/make.mjs <folder with Carlito-Regular/Bold/Italic.ttf>
+// CV_SHAPES=french,band makes only those (the others stay byte for byte).
 // The four HTML shapes are printed by Chromium like the app prints (CID TrueType from Carlito, Type 3 from the variable Inter); the two
 // others are drawn by make-drawn.mjs. All people are invented. The PDFs are committed; this only remakes them.
 import {app, BrowserWindow} from 'electron';
@@ -28,10 +29,11 @@ async function printHtml(name) {
 app.on('window-all-closed', () => {});
 app.whenReady().then(async () => {
   try {
-    for (const name of ['sidebar', 'band', 'table', 'french']) fs.writeFileSync(path.join(here, `${name}.pdf`), await printHtml(name));
-    fs.writeFileSync(path.join(here, 'word-like.pdf'), await wordLike());
-    fs.writeFileSync(path.join(here, 'latex-like.pdf'), await latexLike());
-    console.log('made 6 CV shapes');
+    const only = (process.env.CV_SHAPES || '').split(',').filter(Boolean), wanted = name => !only.length || only.includes(name);
+    for (const name of ['sidebar', 'band', 'table', 'french'].filter(wanted)) fs.writeFileSync(path.join(here, `${name}.pdf`), await printHtml(name));
+    if (wanted('word-like')) fs.writeFileSync(path.join(here, 'word-like.pdf'), await wordLike());
+    if (wanted('latex-like')) fs.writeFileSync(path.join(here, 'latex-like.pdf'), await latexLike());
+    console.log(`made ${only.length ? only.join(', ') : 'the 6 CV shapes'}`);
   } catch (error) { console.error(`cv shapes not made: ${error.message}`); process.exitCode = 1; }
   app.quit();
 });

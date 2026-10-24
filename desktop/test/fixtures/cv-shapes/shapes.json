@@ -315,7 +315,7 @@
   "cv": {
    "name": "Camille Roux",
    "location": "Lyon, France",
-   "summary": "Comptable avec neuf ans d'expérience en cabinet puis en entreprise industrielle. J'aime les clôtures bien préparées, les procédures écrites et les échanges simples avec les opérationnels comme avec les commissaires aux comptes.",
+   "summary": "Comptable avec neuf ans d'expérience en cabinet puis en entreprise industrielle.\nJ'aime les clôtures bien préparées et les échanges simples avec les opérationnels comme avec les commissaires aux comptes.\n- Procédures écrites pour chaque étape de la clôture.\n- Relations suivies avec les banques et les auditeurs.",
    "links": [
     {
      "text": "camille.roux@example.fr",
@@ -370,7 +370,7 @@
    "languages": "Français (langue maternelle), anglais (courant), italien (notions)"
   },
   "tailoring": {
-   "summary": "Comptable avec neuf ans d'expérience en cabinet puis en entreprise industrielle, spécialiste des clôtures mensuelles rapides. J'aime les procédures écrites et les échanges simples avec les opérationnels et les commissaires aux comptes.",
+   "summary": "Comptable avec neuf ans d'expérience, spécialiste des clôtures en industrie.\nJ'aime les clôtures rapides et les échanges simples avec les opérationnels et les commissaires aux comptes.\n- Procédures écrites pour chaque clôture.\n- Relations suivies avec les banques et les auditeurs.",
    "jobs": [
     {
      "company": "Rhône Équipements",

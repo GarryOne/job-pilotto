@@ -8,7 +8,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
 import {applyTailoring} from '../lib/cv.js';
-import {itemsOf, planInPlace, roomOf} from '../lib/cv-inplace.js';
+import {itemsOf, planInPlace, roomOf, summaryParts} from '../lib/cv-inplace.js';
 import {resetItem} from '../lib/pdf-edit/layout.js';
 import {writePdf} from '../lib/pdf-edit/write.js';
 import {compare, prints, read} from './pdf-fidelity.js';
@@ -29,8 +29,9 @@ for (const [name, {cv, tailoring}] of Object.entries(shapes)) {
   test(`${name}: every summary and bullet of the CV is found on its page`, async () => {
     const items = itemsOf(await read(pdfOf(name)), cv);
     assert.deepEqual(items.filter(i => !i.shows).map(i => i.text), []);
-    const room = roomOf(items);
-    assert.ok(room.summary >= cv.summary.length, 'the summary has at least its own length as room');
+    const room = roomOf(items), parts = cv.summary.split('\n');
+    if (parts.length === 1) assert.ok(room.summary >= cv.summary.length, 'the summary has at least its own length as room');
+    else assert.deepEqual(room.summaryParts.map((chars, n) => chars >= parts[n].replace(/^- /, '').length), parts.map(() => true), 'each paragraph and list line of the summary has its own room');
   });
 
   test(`${name}: tailored in place keeps the design`, async () => {
@@ -48,7 +49,10 @@ for (const [name, {cv, tailoring}] of Object.entries(shapes)) {
     assert.deepEqual(diff.lost.slice(0, 5), [], 'nothing outside the edited items moved');
     // the new wording is printed, the old one is gone
     const kept = new Set(warnings.filter(w => /kept your original wording/.test(w)).map(w => w.split(':')[0]));
-    if (review.summaryMark) { assert.ok(prints(after, review.summary), 'new summary printed'); assert.ok(!prints(after, cv.summary), 'old summary gone'); }
+    if (review.summaryMark) {
+      const was = summaryParts(cv.summary), now = summaryParts(review.summary);
+      now.forEach((line, n) => { assert.ok(prints(after, line), 'new summary line printed'); if (line !== was[n]) assert.ok(!prints(after, was[n]), 'old summary line gone'); });
+    }
     review.jobs.forEach((job, j) => job.roles.forEach((role, r) => role.bullets.forEach(b => {
       const where = `${cv.jobs[j].company} · ${cv.jobs[j].roles[r].title}`, original = cv.jobs[j].roles[r].bullets[b.from];
       if (b.mark !== 'reworded') return assert.ok(prints(after, original), `kept bullet still printed (${where})`);
@@ -86,4 +90,19 @@ test('bullets reordered on the page follow the tailoring, markers with them', as
   assert.deepEqual(order, [...order].sort((a, b) => a - b), 'printed top to bottom in the new order');
   const markers = after.pages[0].marks.filter(m => m.x < 30).map(m => m.y + m.h / 2).sort((a, b) => a - b).slice(0, 4);
   order.forEach((line, i) => assert.ok(Math.abs(markers[i] - (line - 3)) < 4, `marker ${i} beside its bullet`));
+});
+
+// The import keeps a summary's paragraphs and list lines as lines of one text ("- " for a list line, whose marker the page draws).
+test('a summary in paragraphs and list lines: each is re-set on its own; another count of paragraphs keeps the original', async () => {
+  const {cv, tailoring} = shapes.french, bytes = pdfOf('french'), before = await read(bytes);
+  const summary = itemsOf(before, cv).filter(i => i.kind === 'summary');
+  assert.equal(summary.length, 4);
+  assert.ok(summary.every(i => i.shows), 'every paragraph and list line found, the list lines without their "- "');
+  const {plan, warnings} = planInPlace(before, cv, applyTailoring(cv, tailoring).review);
+  assert.deepEqual(warnings.filter(w => /^Summary/.test(w)), []);
+  const after = await read(await writePdf(bytes, before, plan));
+  for (const line of tailoring.summary.split('\n')) assert.ok(prints(after, line.replace(/^- /, '')), 'the new line is printed');
+  const flat = applyTailoring(cv, {...tailoring, summary: tailoring.summary.replace(/\n/g, ' ')}).review;
+  const one = planInPlace(before, cv, flat);
+  assert.deepEqual(one.warnings.filter(w => /^Summary/.test(w)), ['Summary: the new summary has another number of paragraphs; kept your original wording']);
 });
