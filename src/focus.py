@@ -265,7 +265,8 @@ def gmail_connected():
     """Whether a Gmail check can run here (a Google sign-in saved, mail not switched off). A revoked sign-in still counts: the Gmail check says that one itself."""
     from .sources.google import Google
     try:
-        return Google.from_env() is not None
+        found = Google.from_env()
+        return found is not None and (found.scopes is None or 'gmail' in found.scopes)   # replies are collected from Gmail only
     except Exception:  # noqa: BLE001 - the wording only; Focus never fails on it
         return True
 

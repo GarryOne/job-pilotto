@@ -242,9 +242,12 @@ let cloudUrls = null;
 let cloudWaiting = false;
 let cloudSince = 0;
 
+let googleOnly;   // the one part left unticked on Google's screen: Reconnect asks only for it (src/sources/google_scopes.py)
 export async function showGoogle() {
   const google = await window.pilot.googleStatus().catch(() => ({connected: false}));
-  $('google-status').textContent = google.connected ? `✓ Connected as ${google.email}` : google.error ? 'Sign-in expired: connect again' : 'Not connected';
+  const left = google.connected ? google.scopes?.missing || [] : [];
+  googleOnly = left.length === 1 ? left[0] : undefined;
+  $('google-status').textContent = google.connected ? `${left.length ? '⚠' : '✓'} Connected as ${google.email}${left.length ? `. ${google.scopes.say}` : ''}` : google.error ? 'Sign-in expired: connect again' : 'Not connected';
   $('google-status').classList.toggle('on', !!google.connected);
   $('google-connect').textContent = google.connected ? 'Reconnect' : 'Connect Google';
   // A way out, like Always on's and Telegram buttons' (owner, 7 Oct 2026: "there is no way for me to disconnect from Gmail").
@@ -408,7 +411,7 @@ export async function init() {
     $('google-warning-dialog').close();
     $('google-connect').disabled = true;
     message('google-message', 'Finish the sign-in in your browser: on Google\'s warning page press Advanced, then Go to Jobadabra (unsafe).');
-    const result = await window.pilot.googleConnect();
+    const result = await window.pilot.googleConnect({only: googleOnly});
     $('google-connect').disabled = false;
     message('google-message', result.ok ? 'Connected ✓' : result.error, result.ok ? 'ok' : 'error');
     showGoogle();

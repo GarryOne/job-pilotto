@@ -194,6 +194,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_SCOPES: ${{ secrets.GOOGLE_SCOPES }}   # which of Gmail / Calendar the user allowed (src/sources/google_scopes.py)
           JOB_PILOTTO_GOOGLE_AUTH_AT: ${{ vars.JOB_PILOTTO_GOOGLE_AUTH_AT }}
           GH_TOKEN: ${{ github.token }}
           JOB: ${{ inputs.job }}

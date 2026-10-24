@@ -42,5 +42,8 @@ def failure_cause(error):
 def failure_warning(error):
     """The run row's warning for a check that failed: a known cause in the app's words; only an unknown one keeps its text, for whoever debugs it.
     #314: a revoked sign-in wrote Google's answer ("invalid_grant … Token has been expired or revoked") into the user's Notion run row."""
+    from ..sources.google_scopes import MissingScope, PART_NAMES
+    if isinstance(error, MissingScope):   # a part left unticked on Google's screen: named, with the way back, never a raw 403
+        return f'not checked: {PART_NAMES[error.part]} was not allowed in the Google sign-in (Settings → Connections → Gmail & Calendar → Reconnect)'
     cause = failure_cause(error)
     return not_checked(cause) if cause else f'check failed: {type(error).__name__}: {str(error)[:200]}'

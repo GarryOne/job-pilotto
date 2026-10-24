@@ -90,6 +90,10 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
         stats.update(pending=count, done=count)
     sent_pass(stores, google, apps, index, days, stats, dry_run)  # your own replies: for Focus's follow-ups
     notes = []
+    granted = getattr(google, 'scopes', None)
+    if calendar and granted is not None and 'calendar' not in granted:   # Calendar left unticked: mail still works, the gap is said once
+        print('Gmail: Calendar was not allowed in the Google sign-in, so interviews are not read from it (Settings → Connections → Reconnect).')
+        calendar = False
     if calendar:
         print('Gmail: checking the calendar…')
         cal_lines, notes = calendar_pass(stores, google, client, model, apps, index, state, stats, now, dry_run)

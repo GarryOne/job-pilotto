@@ -20,7 +20,7 @@ import {extensionReady} from './extension-ready.js';
 import * as sitePassword from './site-password.js';
 import * as terminals from './terminals.js';
 import fs from 'node:fs';
-import {GOOGLE_KEYCHAIN} from './google-keys.js';
+import {GOOGLE_KEYCHAIN, GOOGLE_SCOPES_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {createTakeOver} from './ladder/rung5-takeover.js';
 import {SHOW_RESUME_CLAUDE} from '../renderer/claude-help.js';
@@ -36,7 +36,7 @@ import {demoPath} from './demo.js';
 
 export const extensionGate = installedGate;   // what main.js hands to every handler that opens a Chrome form
 export function registerApplyHandlers(ctx) {
-  const {DEMO, extensionGate = () => null, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter, startClaude, storage, toWindow, track} = ctx;
+  const {DEMO, extensionGate = () => null, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, nativeTheme = {shouldUseDarkColors: false}, needsNotion, prepareKitFor, getRecipeReporter, startClaude, storage, toWindow, track} = ctx;
   const needExtension = () => (DEMO ? null : extensionGate());   // a Chrome form with no extension to fill it: install it first (lib/extension-gate.js)
   ipcMain.handle('apply', async (_, options) => {
     const agents = options?.mode === 'agents';
@@ -202,11 +202,13 @@ export function registerApplyHandlers(ctx) {
     if (DEMO) return process.env.JOB_PILOTTO_DEMO_GOOGLE === 'off' ? {connected: false} : {connected: true, email: 'alex.morgan@example.com'};
     try { return await googleStatus(); } catch { return {connected: false}; }
   });
-  ipcMain.handle('googleConnect', async () => {
+  ipcMain.handle('googleConnect', async (_event, {only} = {}) => {
     const gate = needsNotion('gmail');
     if (gate) return gate;
     const lines = [];
-    const {code} = await pipeline.run(storage, ['src.sources.google', 'auth'], line => lines.push(line));
+    // The browser's "connected" page follows the app's theme; `only` (gmail|calendar) is a reconnect asking just for the part left unticked.
+    const args = ['src.sources.google', 'auth', '--theme', nativeTheme.shouldUseDarkColors ? 'dark' : 'light', ...(['gmail', 'calendar'].includes(only) ? ['--only', only] : [])];
+    const {code} = await pipeline.run(storage, args, line => lines.push(line));
     googleStatus.forget();   // the next status asks again, so the new account shows at once
     // Always on: the new sign-in goes to the GitHub repo too, so the Gmail check there can use it.
     if (code === 0 && cloud()) github.updateRepo(storage).catch(error => log(`Google sign-in not sent to GitHub: ${error.message}`));
@@ -221,7 +223,7 @@ export function registerApplyHandlers(ctx) {
     try { result = JSON.parse(String(stdout).trim().split('\n').pop()); } catch {}
     googleStatus.forget();
     let inRepo = false;
-    if (code === 0 && cloud()) inRepo = await github.removeRepoSecrets(storage, Object.keys(GOOGLE_KEYCHAIN)).catch(error => { appLog('connections', 'Gmail secrets not removed from GitHub', {error: error.message}); return 'failed'; });
+    if (code === 0 && cloud()) inRepo = await github.removeRepoSecrets(storage, [...Object.keys(GOOGLE_KEYCHAIN), ...Object.keys(GOOGLE_SCOPES_KEYCHAIN)]).catch(error => { appLog('connections', 'Gmail secrets not removed from GitHub', {error: error.message}); return 'failed'; });
     appLog('connections', 'Gmail disconnected', {from: 'settings', code, revoked: !!result.revoked, wasConnected: !!result.was_connected, github: inRepo});
     return code === 0 && result.ok ? {ok: true, revoked: !!result.revoked, github: inRepo} : {ok: false, error: 'Gmail could not be disconnected: try again'};
   });

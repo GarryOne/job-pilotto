@@ -10,6 +10,12 @@ test('the Google sign-in is read whole or not at all', () => {
   assert.deepEqual(googleSecrets(service => (service.endsWith('refresh-token') ? '' : all[service])), {});
 });
 
+test('the allowed parts go with the sign-in when known, and are left out when not', () => {
+  const all = {'job-pilotto.google.client-id': 'id', 'job-pilotto.google.client-secret': 'secret', 'job-pilotto.google.refresh-token': 'token', 'job-pilotto.google.scopes': 'gmail'};
+  assert.equal(googleSecrets(service => all[service] || '').GOOGLE_SCOPES, 'gmail');
+  assert.ok(!('GOOGLE_SCOPES' in googleSecrets(service => (service.endsWith('scopes') ? '' : all[service]))));
+});
+
 test('Always on sends the extra secrets (the Google sign-in) with the app\'s own keys', () => {
   const storage = {settings: () => ({}), saveSettings: () => {}, secret: name => (name === 'NOTION_TOKEN' ? 'ntn' : ''), readText: () => ''};
   github.setExtraSecrets(() => ({GOOGLE_REFRESH_TOKEN: 'token', GOOGLE_CLIENT_ID: ''}));
