@@ -71,7 +71,7 @@ export async function runWizard(ctx) {
   await ctx.run('a CV is chosen and read', async () => {
     await ctx.pickCv();
     await page.click('#cv-choose');
-    await page.waitForFunction(() => document.getElementById('cv-name')?.textContent !== 'No CV chosen yet', null, {timeout: 30000});
+    await page.waitForFunction(() => !document.getElementById('cv-file')?.hidden, null, {timeout: 30000});
     await page.waitForFunction(() => !document.getElementById('cv-next')?.disabled, null, {timeout: 30000});
     await page.click('#cv-next');
     await ctx.expectStep('draft');
