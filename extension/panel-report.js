@@ -10,7 +10,7 @@
     .report-pop textarea { width: 100%; min-height: 54px; resize: vertical; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: inherit; }
     .report-pop .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
     .report-pop .act { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--btn); color: var(--ink); font-weight: 600; }
-    .report-pop .act.main { background: var(--signal); border-color: var(--signal); color: #fff; } .report-pop .act[disabled] { opacity: .6; cursor: default; }
+    .report-pop .act.main { background: var(--signal); border-color: var(--signal); color: var(--on-signal); } .report-pop .act[disabled] { opacity: .6; cursor: default; }
     .report-pop .act:focus-visible, .report-pop textarea:focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }`;
   const WORDS = {stopped: 'Jobadabra was stopped before anything was recorded on this page. Press Apply in the app to start again.',
     off: 'The recording is turned off in Jobadabra Settings, so there is nothing to send.', empty: 'Nothing has been recorded on this page yet (a sign-in page is never recorded). Try again after the page has loaded.',

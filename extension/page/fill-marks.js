@@ -17,7 +17,7 @@
         50% { box-shadow: 0 0 0 3px rgba(245,158,11,.75), 0 0 22px 6px rgba(245,158,11,.35); } }
       .jobpilotto-review { box-shadow: 0 0 0 2px rgba(245,158,11,.45), 0 0 10px 2px rgba(245,158,11,.18) !important;
         animation: jobpilotto-pulse 1.4s ease-in-out 3; transition: box-shadow .3s ease; }
-      .jobpilotto-flash { box-shadow: 0 0 0 3px rgba(240,112,20,.8), 0 0 24px 6px rgba(240,112,20,.35) !important;
+      .jobpilotto-flash { box-shadow: 0 0 0 3px rgba(255,178,36,.8), 0 0 24px 6px rgba(255,178,36,.35) !important;
         animation: jobpilotto-pulse 1s ease-in-out 3; transition: box-shadow .3s ease; }
       @media (prefers-reduced-motion: reduce) { .jobpilotto-review, .jobpilotto-flash { animation: none; } }`;
     document.head.append(style);

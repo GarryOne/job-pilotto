@@ -19,7 +19,7 @@
 .ui-menu button.ui-menu-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3);
   padding: 7px var(--sp-2); border-left: 3px solid transparent; }
 .ui-menu button.ui-menu-row:not(:has(.ui-menu-tile)) { grid-template-columns: minmax(0, 1fr) auto; }
-.ui-menu button.ui-menu-row.is-current { background: var(--signal-soft); border-left-color: var(--signal); }
+.ui-menu button.ui-menu-row.is-current { background: var(--signal-soft); border-left-color: var(--signal-edge); }
 .ui-menu-tile { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-2); }
 .ui-menu-row.is-current .ui-menu-tile { background: var(--surface); color: var(--signal-ink); }
 .ui-menu-tile .icon { width: 15px; height: 15px; }

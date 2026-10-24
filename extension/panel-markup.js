@@ -6,13 +6,13 @@
     * { box-sizing: border-box; }
     /* Two themes (owner, 19 Oct 2026: "let it support 2 themes dark/light, in sync with the desktop app"): light tokens here; dark under data-theme=dark (the app's setting, review.js) or,
        when the app says nothing, the system's. Every colour below is a token, so a switch is live with no reload. */
-    .jp { --card: #fff; --head: #132439; --ink: #182537; --muted: #5b6b80; --line: #e2e8f0; --soft: #f1f5fb; --btn: #fff; --signal: #d9540b; --signal-2: #f07014; --link: #1a56c4;
+    .jp { --card: #fff; --head: #132439; --ink: #182537; --muted: #5b6b80; --line: #e2e8f0; --soft: #f1f5fb; --btn: #fff; --signal: #ffb224; --signal-2: #ffb224; --on-signal: #14110c; --signal-text: #8a5700; --link: #8a5700;
       --good: #1f9d55; --good-soft: #e7f6ee; --warn: #9a6200; --warn-soft: #fdf4e4; --info: #165bba; --info-soft: #eaf1fb; --track: #e7ecf2; --tile: #eef3fb; --shadow: rgba(19,36,57,.3);
       font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--ink);
       display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; } .jp > * { pointer-events: auto; }   /* the box is as wide as the pill: its empty part lets the page's clicks through (owner, 9 Oct 2026) */
-    .jp[data-theme=dark] { --card: #111c2b; --head: #0c1522; --ink: #e8eef6; --muted: #94a3b8; --line: #263548; --soft: #172436; --btn: #111c2b; --signal: #e8590c; --link: #f59e4b;
+    .jp[data-theme=dark] { --card: #111c2b; --head: #0c1522; --ink: #e8eef6; --muted: #94a3b8; --line: #263548; --soft: #172436; --btn: #111c2b; --signal: #ffb224; --signal-text: #ffb224; --link: #ffb224;
       --good: #34c36f; --good-soft: #12301f; --warn: #f1b25a; --warn-soft: #34260f; --info: #8fb8f5; --info-soft: #17304f; --track: #243246; --tile: #142238; --shadow: rgba(0,0,0,.55); }
-    @media (prefers-color-scheme: dark) { .jp:not([data-theme=light]):not([data-theme=dark]) { --card: #111c2b; --head: #0c1522; --ink: #e8eef6; --muted: #94a3b8; --line: #263548; --soft: #172436; --btn: #111c2b; --signal: #e8590c; --link: #f59e4b;
+    @media (prefers-color-scheme: dark) { .jp:not([data-theme=light]):not([data-theme=dark]) { --card: #111c2b; --head: #0c1522; --ink: #e8eef6; --muted: #94a3b8; --line: #263548; --soft: #172436; --btn: #111c2b; --signal: #ffb224; --signal-text: #ffb224; --link: #ffb224;
       --good: #34c36f; --good-soft: #12301f; --warn: #f1b25a; --warn-soft: #34260f; --info: #8fb8f5; --info-soft: #17304f; --track: #243246; --tile: #142238; --shadow: rgba(0,0,0,.55); } }
     button { font: inherit; cursor: pointer; border: 0; }
     /* the pill (collapsed) */
@@ -53,7 +53,7 @@
     .bar { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; margin-top: 8px; }
     .bar i { display: block; height: 100%; width: 0; background: var(--signal-2); border-radius: 999px; transition: width .3s; }
     .ready .bar i { background: var(--good); }
-    .primary { width: 100%; padding: 10px; border-radius: 10px; background: var(--signal); color: #fff; font-weight: 650;
+    .primary { width: 100%; padding: 10px; border-radius: 10px; background: var(--signal); color: var(--on-signal); font-weight: 650;
       display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; }
     .primary:hover { filter: brightness(.92); }
     .primary:disabled { opacity: .6; cursor: default; }
@@ -71,7 +71,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .note { padding: 9px 10px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 12.5px; }
     .note span { margin-right: .35em; }   /* the note's text and its button read as two words, not "values.Got it" */
-    .note button { margin-top: 6px; background: transparent; color: var(--signal); font-weight: 650; padding: 0; }
+    .note button { margin-top: 6px; background: transparent; color: var(--signal-text); font-weight: 650; padding: 0; }
     h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
     .item { display: flex; gap: 9px; align-items: flex-start; width: 100%; text-align: left; padding: 7px 8px; border-radius: 8px; background: transparent; color: var(--ink); }
     .item:hover { background: var(--soft); }
@@ -118,7 +118,7 @@
     .jp.working > *, .jp.working .card * { pointer-events: none; } .jp.working .stop-btn, .jp.working .pill-stop, .jp.working .min { pointer-events: auto; }   /* centred, at the corner's own size (owner, 19 Oct 2026: the 1.3 zoom was too big) */
     .jp.working .primary .label { white-space: normal; overflow: visible; text-overflow: clip; }   /* the step's whole sentence, wrapped, never cut short */
     /* The panel breathes an orange glow while it works (owner, 19 Oct 2026); none under reduced motion. */
-    @keyframes breathe { 0%, 100% { box-shadow: 0 10px 34px var(--shadow), 0 0 0 1px var(--line), 0 0 0 0 rgba(240,112,20,0); } 50% { box-shadow: 0 10px 34px var(--shadow), 0 0 0 1px var(--signal-2), 0 0 46px 8px rgba(240,112,20,.6); } }
+    @keyframes breathe { 0%, 100% { box-shadow: 0 10px 34px var(--shadow), 0 0 0 1px var(--line), 0 0 0 0 rgba(255,178,36,0); } 50% { box-shadow: 0 10px 34px var(--shadow), 0 0 0 1px var(--signal-2), 0 0 46px 8px rgba(255,178,36,.6); } }
     .jp.working .card:not([hidden]) { animation: breathe 2.6s ease-in-out infinite; } @media (prefers-reduced-motion: reduce) { .jp.working .card { animation: none; } }
     .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }

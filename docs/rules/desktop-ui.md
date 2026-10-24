@@ -18,9 +18,9 @@ Living copy: `npm run gallery` (sections "Chips" and "Value → control", drawn 
 - **Card or section:** a card is one topic you read or act on; never a card in a card (inside: rows, dividers, a table). One primary button per card.
 - **Icons alone only on secondary buttons** (owner, 18 Oct 2026: "let's leave icons only for secondary buttons"): a primary button, and a row's main action, always shows its words (an icon beside them is fine);
   an icon-only button is a secondary one with a tooltip and an aria-label. Fails: `desktop/test/design-buttons.test.js` (every renderer file) and the UI check's `icon-only-primary` (every view).
-- **Contrast AA in both themes:** text 4.5:1, a field's edge 3:1. A filled accent under white text uses `--signal-solid`.
+- **Contrast AA in both themes:** text 4.5:1, a field's edge 3:1. A filled accent is the website's amber `--signal-solid` with `--on-signal` (dark ink, never white); links `--signal`; a selected card or active tab edge `--signal-edge`; one amber brand (owner, 24 Oct 2026), guarded by `brand-colour.test.js`.
 - **What fails a change:** `desktop/test/contrast.test.js` (token pairs, both themes), `text-fields.test.js` (a new free text box: use the typed control, or
-  raise the file's count in `text-fields-allowed.json` with the reason), `chip.test.js` (raw chip text, a new chip class), `design.test.js` (raw values);
+  raise the file's count in `text-fields-allowed.json` with the reason), `chip.test.js` (raw chip text, a new chip class), `design.test.js` (raw values), `brand-colour.test.js` (a hard-coded orange in the app or extension);
   `npm run shot` prints every saved value cut by its box; `tools/pr-body.sh` refuses a desktop-window PR without the 6 **Design checks** ticked.
 
 ## Cards: read → Edit → editor; one save bar (owner, 18 Oct 2026, UI redesign)
@@ -36,7 +36,7 @@ living copy: `npm run gallery` → "Card shell"; API for other sessions: `~/job-
   more than one tab) · **Save all changes**. Tabs with drafts get a dot. A failed check saves nothing and names tab + field; a part-way failure keeps the failed drafts
   and names them, never a blanket "Saved". Leaving the page (`guardLeave(view, bar.leave)`) or closing the window (`lib/unsaved-guard.js`) asks first. The bar sticks above Application sessions.
 - **Not drafts:** actions with their own button keep their behaviour (read the CV again, an AI review, Generate, Review questions).
-- **Orange = the one current primary action.** Filled orange (`button.primary`) only for Save while there are drafts, or the screen's single next step (Review questions, Generate).
+- **Amber = the one current primary action.** Filled amber with dark ink (`button.primary`) only for Save while there are drafts, or the screen's single next step (Review questions, Generate).
   Edit, Add, "View source in Notion", "Fill from my CV" are quiet (secondary, ghost or in the ⋯ menu); one "View source in Notion" per page, in a secondary menu.
 - **What fails a change:** `desktop/test/card-system.test.js` (a card's own Save/Cancel/Discard in code or in the Profile/Strategy markup; a filled Edit), `card-edit.test.js`,
   `card-shell.test.js`, `save-bar.test.js`, `unsaved-guard.test.js`. Cards not moved yet are listed in `card-system.test.js` KNOWN_LEFT / MARKUP_LEFT: the lists may only shrink.
@@ -64,7 +64,7 @@ Strategy and Profile cards read like the owner's mockups. Parts: `renderer/roomy
 ## Page blocks: review list, empty state, tiles, reference row, counts, page header (18 Oct 2026, UI redesign) [proposed]
 One shared version of each, never a page's own (`renderer/page-parts.js` + `page-parts.css`, `renderer/shared-counts.js`; living copy: `npm run gallery` → "Page blocks").
 - **Review list** `reviewList(items, {doneLabel, empty, statusAt, joined, doneSummary})`: each item = title, why it is here, where it came from, a status chip, its
-  actions (orange only for the first pending `primary`; others outlined, or `link: true` for Dismiss/Undo; `aria` names the row when rows share action words).
+  actions (filled amber only for the first pending `primary`; others outlined, or `link: true` for Dismiss/Undo; `aria` names the row when rows share action words).
   Pending first; done ones folded as "Reviewed · N" (+ `doneSummary`). `statusAt`: `end`, `first` (a priority, fixed width, mockup 08) or `title` (beside the
   name, mockup 06); `joined`: one box with row dividers (mockup 06); `detail`: the whole row opens it, "View details ›" at its end (mockup 08).
 - **Empty state** `emptyState({icon, chip: 'Not created', title, text, actions: [primary, quiet], note})`: a neutral chip, an icon, one line, two actions.

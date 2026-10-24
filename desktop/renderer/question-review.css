@@ -3,7 +3,7 @@
    16 px padding, 12 px gaps, 36 px controls (owner's spec). Guarded by test/question-review.test.js. */
 
 /* Jobs: one compact card, the attention edge of a card that waits for you. */
-.qr-card { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; border-left: 4px solid var(--signal); }
+.qr-card { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; border-left: 4px solid var(--signal-edge); }
 .qr-card-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-md); background: var(--signal-soft); color: var(--signal-ink); }
 .qr-card-text { flex: 1; min-width: 220px; display: grid; gap: 2px; }
 .qr-card-text p { margin: 0; }
@@ -29,13 +29,13 @@
 .qr-seg { flex: 1; min-width: 0; height: 8px; padding: 0; border: 0; border-radius: var(--r-sm); background: var(--line); cursor: pointer; }
 .qr-seg:hover { background: var(--field-line); }
 .qr-seg.is-draft { background: var(--info); opacity: .6; }
-.qr-seg.is-current { background: var(--signal); opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--signal); }
-.qr-seg:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.qr-seg.is-current { background: var(--signal); opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--signal-edge); }
+.qr-seg:focus-visible { outline: 2px solid var(--signal-edge); outline-offset: 2px; }
 .qr-where-row { display: flex; align-items: center; gap: var(--sp-1); }
 .qr-nav { flex: 1; min-width: 0; min-height: 36px; display: flex; align-items: center; gap: var(--sp-2); padding: 4px var(--sp-2) 4px 4px; text-align: left;
   background: var(--field); color: var(--ink); border: 1px solid var(--field-line); border-radius: var(--r-md); font-weight: 500; font-size: var(--fs-md); }
 .qr-nav:hover { border-color: var(--ink-2); }
-.qr-nav[aria-expanded="true"] { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); }
+.qr-nav[aria-expanded="true"] { border-color: var(--signal-edge); box-shadow: 0 0 0 3px var(--signal-soft); }
 .qr-nav-tile { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-2); }
 .qr-nav-tile .icon { width: 15px; height: 15px; }
 .qr-nav-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

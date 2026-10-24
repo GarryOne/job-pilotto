@@ -20,7 +20,7 @@
   color: var(--ink-2); border: 1px solid var(--line); white-space: nowrap; }
 .ui-tag[title] { cursor: help; }
 button.ui-tag.is-action { cursor: pointer; background: var(--signal-soft); color: var(--signal-ink); border-color: var(--signal-line); }
-button.ui-tag.is-action:hover { border-color: var(--signal); }
+button.ui-tag.is-action:hover { border-color: var(--signal-edge); }
 .ui-tag.is-busy { background: var(--surface); color: var(--muted); border-style: dashed; animation: ui-pulse 1.2s ease-in-out infinite; }
 @keyframes ui-pulse { 50% { opacity: .45; } }
 
@@ -90,8 +90,8 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 #lead-dialog .dialog-foot { position: sticky; bottom: 0; z-index: 1; }
 /* A text box with a tool row inside it (attach / paste). */
 .composer { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); }
-.composer:focus-within { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); }
-.composer.is-drop { border-color: var(--signal); background: var(--signal-soft); }
+.composer:focus-within { border-color: var(--signal-edge); box-shadow: 0 0 0 3px var(--signal-soft); }
+.composer.is-drop { border-color: var(--signal-edge); background: var(--signal-soft); }
 .composer textarea { display: block; width: 100%; border: 0; outline: 0; resize: vertical; background: transparent;
   padding: var(--sp-3) var(--sp-4); box-sizing: border-box; }
 .composer-tools { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4) var(--sp-3); }
@@ -182,7 +182,7 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
   border-left: 3px solid transparent; border-radius: var(--r-md); background: none; color: var(--ink-2);
   font-size: var(--fs-md); text-align: left; cursor: pointer; }
 .settings-nav button:hover { background: var(--surface-2); color: var(--ink); }
-.settings-nav button.is-active { background: var(--signal-soft); color: var(--signal-ink); border-left-color: var(--signal); font-weight: 600; }
+.settings-nav button.is-active { background: var(--signal-soft); color: var(--signal-ink); border-left-color: var(--signal-edge); font-weight: 600; }
 .settings-nav svg { width: 18px; height: 18px; flex: none; }
 .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn-bright); margin-left: auto; }
 .settings-page-head { margin: var(--sp-5) 0 var(--sp-3); }
@@ -285,7 +285,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .run-mode-side b { font-size: var(--fs-lg); }
 .segmented { display: inline-flex; border: 1px solid var(--field-line); border-radius: var(--r-md); overflow: hidden; }
 .segmented button { border: 0; background: var(--surface); padding: var(--sp-2) var(--sp-6); font-weight: 600; color: var(--ink); cursor: pointer; border-radius: 0; }
-.segmented button.is-active { background: var(--signal-soft); color: var(--signal-ink); box-shadow: inset 0 0 0 1px var(--signal); }
+.segmented button.is-active { background: var(--signal-soft); color: var(--signal-ink); box-shadow: inset 0 0 0 1px var(--signal-edge); }
 /* Full width, equal parts (a dialog's choice of 2–4 options). */
 /* Filled: one row while it fits, else it wraps into rows of equal cells, every cell framed (owner, 18 Oct 2026: a narrow Goals tile showed the levels as one
    borderless column). The 1px gaps show each cell's outline as the dividers, across and down. */
@@ -446,7 +446,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .tabs { display: flex; gap: var(--sp-5); border-bottom: 1px solid var(--line); margin-bottom: var(--sp-4); }
 .tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: var(--sp-3) var(--sp-2); font-size: var(--fs-md);
   font-weight: 600; color: var(--muted); cursor: pointer; border-radius: 0; margin-bottom: -1px; }
-.tabs button.is-active { color: var(--signal-ink); border-bottom-color: var(--signal); }
+.tabs button.is-active { color: var(--signal-ink); border-bottom-color: var(--signal-edge); }
 
 /* Strategy: two columns (the side one narrower). */
 .strategy-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: var(--sp-4); align-items: start; }
@@ -589,13 +589,13 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .ui-choice { position: relative; display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4); text-align: left;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); font: inherit; color: inherit; cursor: pointer; }
 .ui-choice:hover:not(:disabled) { border-color: var(--line-strong); box-shadow: var(--shadow-sm); }
-.ui-choice.is-selected { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal); background: var(--signal-soft); }
+.ui-choice.is-selected { border-color: var(--signal-edge); box-shadow: 0 0 0 1px var(--signal-edge); background: var(--signal-soft); }
 .ui-choice.is-disabled { cursor: not-allowed; opacity: .6; }
 .ui-choice-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; padding-right: var(--sp-5); }
 .ui-choice-text b { font-size: var(--fs-md); }
 .ui-choice-note { color: var(--warn); }
 .ui-choice-check { position: absolute; top: var(--sp-3); right: var(--sp-3); width: 20px; height: 20px; display: grid;
-  place-items: center; border-radius: 50%; background: var(--signal-solid); color: var(--on-accent); visibility: hidden; }
+  place-items: center; border-radius: 50%; background: var(--signal-solid); color: var(--on-signal); visibility: hidden; }
 .ui-choice-check svg { width: 14px; height: 14px; }
 .ui-choice.is-selected .ui-choice-check { visibility: visible; }
 
@@ -619,7 +619,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 
 /* A button waiting on its action (activity.js pressWhile sets aria-busy): the small spinner before its words, as .spinner.small. */
 button[aria-busy="true"]::before { content: ""; display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px;
-  border: 2px solid var(--line); border-top-color: var(--signal); border-radius: 50%; animation: spin .8s linear infinite; }
+  border: 2px solid var(--line); border-top-color: var(--signal-edge); border-radius: 50%; animation: spin .8s linear infinite; }
 @media (prefers-reduced-motion: reduce) { button[aria-busy="true"]::before { animation: none; } }
 
 /* setCount (components.js): a counter that changes flashes once, its card glows with it. */
@@ -658,13 +658,13 @@ table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm
 /* Palette flash: the card ⌘K brought you to (pages/palette-busy.js reveal): a ring that grows and fades twice, over a faint tint; none for people who ask for less motion. */
 .palette-flash { animation: palette-flash 1.6s ease-out; }
 @keyframes palette-flash {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 70%, transparent); background-color: color-mix(in srgb, var(--signal) 12%, var(--surface)); }
-  40% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--signal) 0%, transparent); }
-  50% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 70%, transparent); }
-  90% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--signal) 0%, transparent); background-color: color-mix(in srgb, var(--signal) 8%, var(--surface)); }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal-edge) 70%, transparent); background-color: color-mix(in srgb, var(--signal) 12%, var(--surface)); }
+  40% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--signal-edge) 0%, transparent); }
+  50% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal-edge) 70%, transparent); }
+  90% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--signal-edge) 0%, transparent); background-color: color-mix(in srgb, var(--signal) 8%, var(--surface)); }
   100% { box-shadow: 0 0 0 8px transparent; background-color: var(--surface); }
 }
-@media (prefers-reduced-motion: reduce) { .palette-flash { animation: none; outline: 2px solid var(--signal); outline-offset: 2px; } }
+@media (prefers-reduced-motion: reduce) { .palette-flash { animation: none; outline: 2px solid var(--signal-edge); outline-offset: 2px; } }
 /* The fold bar at the bottom of the Profile page (profile-fold.js): Expand all / Collapse all for the open tab's cards; a folded card keeps its title and a one-line summary. */
 .foldbar { position: sticky; bottom: 0; z-index: 4; display: flex; align-items: center; justify-content: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); margin-top: var(--sp-4); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-md); }
 .panel-summary { display: none; align-self: center; min-width: 0; }

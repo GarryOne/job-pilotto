@@ -22,6 +22,6 @@ input.add { font-size: var(--fs-md); padding: 6px 10px; }
 .chip-button { display: inline-flex; align-items: center; min-height: var(--control-h); gap: var(--sp-2); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
   border-radius: var(--r-pill); padding: 2px var(--sp-3); font-size: var(--fs-sm); font-weight: 500; cursor: pointer; }
 .chip-button:hover { background: var(--surface-2); }
-.chip-button[aria-pressed="true"] { background: var(--signal-soft); border-color: var(--signal); color: var(--signal-ink); font-weight: 600; }
+.chip-button[aria-pressed="true"] { background: var(--signal-soft); border-color: var(--signal-edge); color: var(--signal-ink); font-weight: 600; }
 .chip-button .chip-count { color: var(--muted); font-size: var(--fs-xs); }
 .chip-button[aria-pressed="true"] .chip-count { color: inherit; }
