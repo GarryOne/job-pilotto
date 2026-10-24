@@ -27,6 +27,7 @@
   "recorded-ci-deps.test.mjs",
   "replay-gate.test.mjs",
   "row-case-gates.test.mjs",
+  "server-closes-on-failure.test.mjs",
   "site-ledger.test.mjs",
   "test-sets.test.mjs"
  ],
