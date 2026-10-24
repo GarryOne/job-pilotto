@@ -99,7 +99,7 @@ def search(args, stores=None):
                     if features.enabled('job_alerts') and engine.ready():
                         from .sources import google as google_api, job_alerts
                         gmail = google_api.Google.from_env()
-                        if gmail:
+                        if gmail and (gmail.scopes is None or 'gmail' in gmail.scopes):   # Gmail left unticked: no alert emails to read
                             alerts = job_alerts.scan(feed_db, gmail, engine.client(action='mail'))
                             report['jobs'] += alerts['jobs']
                             report['sources'] += alerts['sources']

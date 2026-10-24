@@ -277,7 +277,7 @@ def _google_auth_age(now):
 
 
 def check_google(now=None):
-    from .sources import google
+    from .sources import google, google_scopes
     now = now or datetime.now(timezone.utc)
     client = google.Google.from_env()
     if not client:
@@ -286,7 +286,10 @@ def check_google(now=None):
                      'README → Gmail and Calendar setup')
     fix = 'Sign in again: python3 -m src.sources.google auth --github  (add --client-json <file> if you use your own Google app)'
     try:
-        email = client.profile().get('emailAddress', '?')
+        email = client.account_email() or '?'
+        said = google_scopes.say(client.scopes)
+        if said:
+            return Check('Health', 'Gmail + Calendar', WARN, f'{email}: {said}', 'Reconnect in the app: Settings → Connections → Gmail & Calendar')
     except Exception as error:
         expired = 'invalid_grant' in str(error)
         return Check('Health', 'Gmail + Calendar', FAIL,

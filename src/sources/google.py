@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only Google access for Job Pilotto: Gmail (job-related emails) and Calendar (interviews).
+"""Read-only Google access for Jobadabra: Gmail (job-related emails) and Calendar (interviews).
 
 Scopes are gmail.readonly and calendar.readonly: nothing is ever sent, changed or deleted. `auth` runs the
 one-time browser sign-in on this Mac (loopback redirect + PKCE), stores the refresh token in the Keychain,
@@ -7,7 +7,7 @@ and with --github also sets the GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE
 repository secrets for CI.
 
 Two ways to connect:
-- The shared Job Pilotto app (default): the published "Job Pilotto" Google app. Its client file,
+- The shared Jobadabra app (default): the "Jobadabra" Google app. Its client file,
   config/google_oauth_client.json, is not in git: the Mac app build adds it from the
   GOOGLE_SHARED_CLIENT_JSON secret. One command, one browser consent, no Google Cloud setup.
 - Your own Google app: `setup` walks you through creating one (src/sources/google_setup.py), or pass a
@@ -41,9 +41,11 @@ from pathlib import Path
 from email.utils import parsedate_to_datetime
 
 from .. import secret_store
+from . import google_scopes
+from .google_auth import SignIn, TOKEN_URL, authorize  # noqa: F401 — authorize is re-exported: callers and tests use `google.authorize`
+from .google_scopes import MissingScope  # noqa: F401
 
-SCOPES = ('https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.readonly')
-TOKEN_URL = 'https://oauth2.googleapis.com/token'
+SCOPES = tuple(google_scopes.SCOPE_URLS.values())
 SHARED_CLIENT = Path(__file__).resolve().parents[2] / 'config' / 'google_oauth_client.json'
 KEYCHAIN = {'GOOGLE_CLIENT_ID': 'job-pilotto.google.client-id', 'GOOGLE_CLIENT_SECRET': 'job-pilotto.google.client-secret',
             'GOOGLE_REFRESH_TOKEN': 'job-pilotto.google.refresh-token'}
@@ -70,9 +72,15 @@ def credentials():
 
 
 class Google:
-    def __init__(self, client_id, client_secret, refresh_token, opener=urllib.request.urlopen):
+    def __init__(self, client_id, client_secret, refresh_token, opener=urllib.request.urlopen, scopes=None):
         self.client_id, self.client_secret, self.refresh_token = client_id, client_secret, refresh_token
         self.opener, self._token = opener, None
+        self.scopes = scopes   # the parts the user allowed (google_scopes.GMAIL, CALENDAR); None = unknown, all assumed
+
+    def need(self, part):
+        """Raise the named MissingScope before any request when the user left this part unticked."""
+        if self.scopes is not None and part not in self.scopes:
+            raise MissingScope(part)
 
     @classmethod
     def from_env(cls):
@@ -80,7 +88,7 @@ class Google:
         if disabled('mail'):  # JOB_PILOTTO_DISABLE=mail
             return None
         found = credentials()
-        return cls(*found) if found else None
+        return cls(*found, scopes=google_scopes.from_env(_keychain)) if found else None
 
     def _access_token(self):
         if not self._token:
@@ -97,13 +105,27 @@ class Google:
         if params:
             url += '?' + urllib.parse.urlencode(params, doseq=True)
         request = urllib.request.Request(e2e_url(url), headers={'Authorization': f'Bearer {self._access_token()}'})
-        with self.opener(request, timeout=30) as response:
-            return json.load(response)
+        try:
+            with self.opener(request, timeout=30) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as error:
+            part = google_scopes.part_of_refusal(url, error.code, error.read().decode(errors='replace'))
+            if part:   # a sign-in saved before the granted parts were kept: Google's own "insufficient scope" says which part is missing
+                raise MissingScope(part) from error
+            raise
+
+    def account_email(self):
+        """The signed-in address: Gmail's profile, or the calendar's own id when only Calendar was allowed."""
+        if self.scopes is None or google_scopes.GMAIL in self.scopes:
+            return self.profile()['emailAddress']
+        self.need(google_scopes.CALENDAR)
+        return self.get('https://www.googleapis.com/calendar/v3/calendars/primary').get('id', '')
 
     # ---------- Gmail ----------
 
     def search(self, query, limit=50):
         """Message ids matching a Gmail search, newest first."""
+        self.need(google_scopes.GMAIL)
         ids, token = [], None
         while len(ids) < limit:
             params = {'q': query, 'maxResults': min(100, limit - len(ids))}
@@ -118,6 +140,7 @@ class Google:
 
     def snippet(self, message_id):
         """{id, from, subject, snippet} of one email, without its body: what the inbox triage reads (src/ai/mail_triage.py)."""
+        self.need(google_scopes.GMAIL)
         data = self.get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}',
                         {'format': 'metadata', 'metadataHeaders': ['From', 'Subject']})
         headers = {h['name'].lower(): h['value'] for h in (data.get('payload') or {}).get('headers', [])}
@@ -125,6 +148,7 @@ class Google:
 
     def message(self, message_id):
         """{id, from, to, subject, date (ISO), body} of one email; the body is plain text, capped."""
+        self.need(google_scopes.GMAIL)
         data = self.get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}', {'format': 'full'})
         headers = {h['name'].lower(): h['value'] for h in data['payload'].get('headers', [])}
         try:
@@ -144,12 +168,14 @@ class Google:
         return email
 
     def profile(self):
+        self.need(google_scopes.GMAIL)
         return self.get('https://gmail.googleapis.com/gmail/v1/users/me/profile')
 
     # ---------- Calendar ----------
 
     def events(self, start, end, calendar='primary'):
         """Single events (recurring ones expanded) between two datetimes, by start time."""
+        self.need(google_scopes.CALENDAR)
         page = self.get(f'https://www.googleapis.com/calendar/v3/calendars/{urllib.parse.quote(calendar)}/events', {
             'timeMin': start.isoformat(), 'timeMax': end.isoformat(), 'singleEvents': 'true',
             'orderBy': 'startTime', 'maxResults': 250})
@@ -314,48 +340,6 @@ def wait_for_confirmation(google, sender='', minutes=15, wait=180, every=10, sle
 
 # ---------- one-time sign-in ----------
 
-def authorize(client_id, client_secret, open_browser=webbrowser.open):
-    """Browser consent on this Mac; returns the refresh token."""
-    verifier = secrets.token_urlsafe(64)
-    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
-    state, result = secrets.token_urlsafe(16), {}
-
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):  # noqa: N802
-            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            result.update({k: v[0] for k, v in query.items()})
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html; charset=utf-8')
-            self.end_headers()
-            self.wfile.write('<h2>Jobadabra is connected. You can close this tab.</h2>'.encode())
-
-        def log_message(self, *args):
-            pass
-
-    server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
-    redirect = f'http://127.0.0.1:{server.server_port}'
-    url = 'https://accounts.google.com/o/oauth2/v2/auth?' + urllib.parse.urlencode({
-        'client_id': client_id, 'redirect_uri': redirect, 'response_type': 'code', 'scope': ' '.join(SCOPES),
-        'access_type': 'offline', 'prompt': 'consent', 'state': state,
-        'code_challenge': challenge, 'code_challenge_method': 'S256'})
-    print(f'Opening Google sign-in. If no browser opens, visit:\n{url}\n')
-    thread = threading.Thread(target=server.handle_request)
-    thread.start()
-    open_browser(url)
-    thread.join(timeout=300)
-    server.server_close()
-    if result.get('state') != state or 'code' not in result:
-        raise SystemExit(f"Sign-in did not complete: {result.get('error', 'no answer within 5 minutes')}")
-    body = urllib.parse.urlencode({'code': result['code'], 'client_id': client_id, 'client_secret': client_secret,
-                                   'redirect_uri': redirect, 'grant_type': 'authorization_code',
-                                   'code_verifier': verifier}).encode()
-    with urllib.request.urlopen(urllib.request.Request(TOKEN_URL, data=body), timeout=20) as response:
-        tokens = json.load(response)
-    if 'refresh_token' not in tokens:
-        raise SystemExit('Google returned no refresh token; remove Job Pilotto at myaccount.google.com/permissions and retry.')
-    return tokens['refresh_token']
-
-
 def load_client(path):
     """(client id, client secret) from a Desktop-app client JSON (as downloaded, or the shared one)."""
     with open(os.path.expanduser(str(path))) as handle:
@@ -365,13 +349,16 @@ def load_client(path):
     return client['client_id'], client['client_secret']
 
 
-def store(client_id, client_secret, refresh_token, production, github):
+def store(client_id, client_secret, refresh_token, production, github, parts=None):
     """Keychain entries (and, with github, the repository secrets) for a completed sign-in.
     A published app's sign-in doesn't expire; an app in "Testing" gets a sign-in date so the health
     check can warn before Google's 7-day limit."""
     values = {'GOOGLE_CLIENT_ID': client_id, 'GOOGLE_CLIENT_SECRET': client_secret, 'GOOGLE_REFRESH_TOKEN': refresh_token}
     for name, service in KEYCHAIN.items():
         secret_store.put(service, values[name])
+    if parts is not None:   # what the user allowed; kept next to the token so every reader names a missing part (google_scopes.py)
+        secret_store.put(google_scopes.SCOPES_SERVICE, ' '.join(parts))
+        values['GOOGLE_SCOPES'] = ' '.join(parts)
     signed_in = '' if production else datetime.now(timezone.utc).isoformat(timespec='seconds')
     if signed_in:
         secret_store.put(AUTH_AT, signed_in)
@@ -405,7 +392,7 @@ def disconnect(opener=urllib.request.urlopen):
                 revoked = True
         except Exception:  # noqa: BLE001 — forgotten here all the same; the Google account page can remove it by hand
             revoked = False
-    for service in [*KEYCHAIN.values(), AUTH_AT]:
+    for service in [*KEYCHAIN.values(), AUTH_AT, google_scopes.SCOPES_SERVICE]:
         secret_store.delete(service)
     return {'ok': True, 'revoked': revoked, 'was_connected': bool(found)}
 
@@ -416,18 +403,24 @@ def report():
         raise SystemExit('Not connected: run `python3 -m src.sources.google auth --github`')
     now = datetime.now(timezone.utc)
     from datetime import timedelta
-    print(f"Connected Gmail: {google.profile()['emailAddress']}")
-    print(f"Job-related emails in the last 7 days: {len(google.search('newer_than:7d subject:(application OR applying OR interview)', 100))}")
-    print(f"Calendar events in the next 14 days: {len(google.events(now, now + timedelta(days=14)))}")
+    if google_scopes.GMAIL in (google.scopes or google_scopes.SCOPE_URLS):
+        print(f"Connected Gmail: {google.profile()['emailAddress']}")
+        print(f"Job-related emails in the last 7 days: {len(google.search('newer_than:7d subject:(application OR applying OR interview)', 100))}")
+    if google_scopes.CALENDAR in (google.scopes or google_scopes.SCOPE_URLS):
+        print(f"Calendar events in the next 14 days: {len(google.events(now, now + timedelta(days=14)))}")
+    if google_scopes.say(google.scopes):
+        print(google_scopes.say(google.scopes))
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
-    auth = sub.add_parser('auth', help='one-time browser sign-in (the shared Job Pilotto app unless you give your own)')
+    auth = sub.add_parser('auth', help='one-time browser sign-in (the shared Jobadabra app unless you give your own)')
     auth.add_argument('--client-json', help='your own Desktop app client, as downloaded from Google Cloud')
     auth.add_argument('--client-id')
     auth.add_argument('--client-secret')
+    auth.add_argument('--only', choices=list(google_scopes.SCOPE_URLS), help='reconnect asking only for this part (the earlier grant is kept)')
+    auth.add_argument('--theme', choices=['light', 'dark'], default='', help="the app's theme, for the page the browser lands on")
     auth.add_argument('--github', action='store_true', help='also set the three GOOGLE_* repository secrets with gh')
     auth.add_argument('--production', action='store_true',
                       help="your own app is published ('In production'): the sign-in doesn't expire after 7 days")
@@ -444,7 +437,8 @@ def main(argv=None):
     if args.command == 'status':
         google = Google.from_env()
         try:
-            print(json.dumps({'connected': True, 'email': google.profile()['emailAddress']} if google else {'connected': False}))
+            print(json.dumps({'connected': True, 'email': google.account_email(), 'scopes': google_scopes.status(google.scopes)}
+                             if google else {'connected': False}))
         except Exception as error:  # expired or revoked sign-in: the app offers Connect again
             print(json.dumps({'connected': False, 'error': str(error)[:200]}))
         return 0
@@ -468,16 +462,20 @@ def main(argv=None):
             args.client_id, args.client_secret = load_client(args.client_json)
         elif not (args.client_id or args.client_secret):
             if not SHARED_CLIENT.is_file():
-                parser.error('the shared Job Pilotto Google app is only bundled with the Mac app; '
+                parser.error('the shared Jobadabra Google app is only bundled with the Mac app; '
                              'run `python -m src.sources.google setup` to use your own Google app instead')
             args.client_id, args.client_secret = load_client(SHARED_CLIENT)
             production = True  # the shared app is published: no 7-day expiry
-            print('Using the shared Job Pilotto Google app (read-only Gmail and Calendar). '
-                  'Google will say it is unverified: Advanced → Go to Job Pilotto.')
+            print('Using the shared Jobadabra Google app (read-only Gmail and Calendar). '
+                  'Google may say it is unverified: Advanced → Go to Jobadabra.')
         if not (args.client_id and args.client_secret):
             parser.error('give --client-json, or both --client-id and --client-secret, or nothing for the shared app')
-        token = authorize(args.client_id, args.client_secret)
-        store(args.client_id, args.client_secret, token, production, args.github)
+        only = (args.only,) if args.only else None
+        sign_in = authorize(args.client_id, args.client_secret, only=only, theme=args.theme) if (only or args.theme) \
+            else authorize(args.client_id, args.client_secret)
+        # A reconnect for one part keeps the part allowed earlier (Google's include_granted_scopes keeps its grant too).
+        parts = tuple(dict.fromkeys([*(google_scopes.from_env(_keychain) or ()), *sign_in.scopes])) if only else sign_in.scopes
+        store(args.client_id, args.client_secret, sign_in.refresh_token, production, args.github, parts)
     report()
     return 0
 

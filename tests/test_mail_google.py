@@ -43,11 +43,11 @@ class GoogleApiTests(unittest.TestCase):
             client_file = Path(tmp) / 'google_oauth_client.json'
             client_file.write_text(json.dumps({'installed': shared}))
             with mock.patch.object(google_api, 'SHARED_CLIENT', client_file), \
-                    mock.patch.object(google_api, 'authorize', return_value='refresh') as authorize, \
+                    mock.patch.object(google_api, 'authorize', return_value=google_api.SignIn('refresh', ('gmail', 'calendar'))) as authorize, \
                     mock.patch.object(google_api, 'store') as store, mock.patch.object(google_api, 'report'):
                 google_api.main(['auth', '--github'])
         authorize.assert_called_once_with(shared['client_id'], shared['client_secret'])
-        store.assert_called_once_with(shared['client_id'], shared['client_secret'], 'refresh', True, True)  # published
+        store.assert_called_once_with(shared['client_id'], shared['client_secret'], 'refresh', True, True, ('gmail', 'calendar'))  # published
 
     def test_auth_without_the_bundled_shared_client_points_to_setup(self):
         with mock.patch.object(google_api, 'SHARED_CLIENT', Path('/nonexistent/google_oauth_client.json')), \

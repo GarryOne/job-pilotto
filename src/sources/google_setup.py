@@ -1,10 +1,10 @@
-"""Guided setup of your own Google app for Job Pilotto (`python -m src.sources.google setup`).
+"""Guided setup of your own Google app for Jobadabra (`python -m src.sources.google setup`).
 
-Most people should use the shared Job Pilotto app instead (`python -m src.sources.google auth --github`:
+Most people should use the shared Jobadabra app instead (`python -m src.sources.google auth --github`:
 one browser consent). This is for developers who want their own Google Cloud project. It does
 everything the command line can, and walks you through the three console pages it can't:
 
-1. gcloud (signed in with the Google account whose mail Job Pilotto should read) creates the project
+1. gcloud (signed in with the Google account whose mail Jobadabra should read) creates the project
    and enables the Gmail and Calendar APIs.
 2. Console, Branding: app name, your email, audience External.
 3. Optional: a public privacy-policy gist (with gh) so you can publish the app, which removes Google's
@@ -76,13 +76,13 @@ def wait_for_client_file(since, timeout=DOWNLOAD_WAIT_SECONDS, poll=2):
 
 
 def run():
-    say('Your own Google app for Job Pilotto (read-only Gmail and Calendar).\n'
-        'Tip: the shared Job Pilotto app needs none of this: python3 -m src.sources.google auth --github\n')
+    say('Your own Google app for Jobadabra (read-only Gmail and Calendar).\n'
+        'Tip: the shared Jobadabra app needs none of this: python3 -m src.sources.google auth --github\n')
     if not shutil.which('gcloud'):
         say('gcloud is needed for steps 1-2: https://cloud.google.com/sdk/docs/install (or do them in the console; '
             'see README → Gmail and Calendar setup).')
         return 1
-    account = ask('Google account whose Gmail Job Pilotto should read', os.getenv('JOB_PILOTTO_GOOGLE_ACCOUNT', ''))
+    account = ask('Google account whose Gmail Jobadabra should read', os.getenv('JOB_PILOTTO_GOOGLE_ACCOUNT', ''))
     if not account:
         return 1
     known = subprocess.run(['gcloud', 'auth', 'list', '--format=value(account)'], capture_output=True, text=True).stdout
@@ -91,7 +91,7 @@ def run():
         subprocess.run(['gcloud', 'auth', 'login', account], check=False)
     project = ask('Project ID to create', project_id())
     say(f'\n1. Creating project {project} and enabling the Gmail and Calendar APIs…')
-    created = gcloud('projects', 'create', project, '--name=Job Pilotto', account=account)
+    created = gcloud('projects', 'create', project, '--name=Jobadabra', account=account)
     if created.returncode and 'already exists' not in created.stderr:
         say(created.stderr.strip())
         return 1
@@ -103,14 +103,14 @@ def run():
     say('   done.')
 
     pause(f'{CONSOLE}/auth/overview?project={project}',
-          f'2. Consent screen: Get started → App name "Job Pilotto", support email {account}, audience External, '
+          f'2. Consent screen: Get started → App name "Jobadabra", support email {account}, audience External, '
           f'contact email {account}, accept the policy → Create.')
 
     published = False
     if shutil.which('gh') and PRIVACY_TEMPLATE.exists() and yes(
             '3. Publish the app so the sign-in never expires? This creates a public privacy-policy gist from '
             'docs/google-privacy-policy-template.md (no personal data)'):
-        done = subprocess.run(['gh', 'gist', 'create', '--public', '-d', 'Job Pilotto — privacy policy',
+        done = subprocess.run(['gh', 'gist', 'create', '--public', '-d', 'Jobadabra — privacy policy',
                                str(PRIVACY_TEMPLATE)], capture_output=True, text=True)
         url = done.stdout.strip().splitlines()[-1] if done.returncode == 0 else ''
         if url:
@@ -129,17 +129,17 @@ def run():
 
     started = time.time()
     pause(f'{CONSOLE}/auth/clients/create?project={project}',
-          '4. Clients → Create client: type "Desktop app", name "Job Pilotto" → Create → Download JSON.')
+          '4. Clients → Create client: type "Desktop app", name "Jobadabra" → Create → Download JSON.')
     path = newest_client_file(started) or wait_for_client_file(started, timeout=60)
     if not path:
         path = ask('Could not find the downloaded client_secret_….json; its path')
     client_id, client_secret = google.load_client(path)
     say(f'   Using {path}')
 
-    say('\n5. Signing in: a Google tab opens. On "Google hasn\'t verified this app": Advanced → Go to Job Pilotto, '
+    say('\n5. Signing in: a Google tab opens. On "Google hasn\'t verified this app": Advanced → Go to Jobadabra, '
         'tick both read-only permissions → Continue.')
-    token = google.authorize(client_id, client_secret)
-    google.store(client_id, client_secret, token, production=published, github=bool(shutil.which('gh')))
+    sign_in = google.authorize(client_id, client_secret)
+    google.store(client_id, client_secret, sign_in.refresh_token, production=published, github=bool(shutil.which('gh')), parts=sign_in.scopes)
     google.report()
     say('\nDone. Keep the client file somewhere safe; to sign in again later: '
         f'python3 -m src.sources.google auth --client-json {path} --github' + (' --production' if published else ''))

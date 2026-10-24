@@ -286,7 +286,7 @@ function handlers() {
   registerAppMetaHandlers({DEMO, FROM_SOURCE, restartAfterQuitGuard: reason => restarter.restart(reason), app, betaOn, checkForUpdate, cloud, dialog, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track,
     getLicense: () => license, getPlan, shell, getTelemetry: () => telemetry, getUpdateOffer, setUpdateOffer,
     getUpdateCheckedAt, getWindow: () => window, channels});   // lib/app-meta-handlers.js
-  const {showForm} = registerApplyHandlers({DEMO, extensionGate, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter: () => recipeReporterRef, shell, startClaude, storage, toWindow, track});   // lib/apply-handlers.js
+  const {showForm} = registerApplyHandlers({DEMO, extensionGate, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, nativeTheme, needsNotion, prepareKitFor, getRecipeReporter: () => recipeReporterRef, shell, startClaude, storage, toWindow, track});   // lib/apply-handlers.js
   registerCvAndLettersHandlers({BrowserWindow, DEMO, cvOf, handleImportant, ipcMain, keepLook, openTailoredCv, printPdf, shell, storage, tailorCv, tailoring, toWindow});   // lib/cv-handlers.js
   registerExperienceHandlers({DEMO, dialog, getWindow: () => window, ipcMain, shell, storage});   // lib/experience-handlers.js
   registerVisitsHandlers({DEMO, allowanceBlock, here, ipcMain, log, readSites, shell, storage});   // lib/visits-handlers.js
