@@ -41,12 +41,19 @@ class NotAJobTest(unittest.TestCase):
         self.assertEqual((data['score'], data['tier'], data['gaps'][0]), (0, 'C', score_not_a_job.GAP))
         self.assertEqual(len(fake.asked), 1, 'a page that is not a job is not asked again for its salary or level')
 
+    def test_a_zero_never_keeps_a_reason_that_praises_the_fit(self):
+        # 24 Oct 2026: two rows showed fit 0 beside "Good fit with some gaps": the score was zeroed, the model's own reason stayed.
+        data, _ = score.score_one(client({**answer(one_job=False), 'reason': 'Good fit with some gaps in ETL and cloud skills'}), 'm', CATEGORY, 'p')
+        self.assertEqual(data['score'], 0)
+        self.assertEqual(data['reason'], score_not_a_job.REASON)
+
     def test_one_job_keeps_its_score(self):
         for one_job in (True, None):   # None: an answer scored before the field existed
             with self.subTest(one_job=one_job):
                 data, _ = score.score_one(client(answer(one_job=one_job)), 'm', {**CATEGORY, 'title': 'Financial Analyst'}, 'p')
                 self.assertEqual((data['score'], data['tier']), (78, 'A'))
                 self.assertNotIn(score_not_a_job.GAP, data['gaps'])
+                self.assertEqual(data['reason'], 'Finance roles in Amsterdam')
 
 
 if __name__ == '__main__':
