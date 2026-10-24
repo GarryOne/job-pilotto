@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 
-export const TAG = 'search-tapes', DEBUG_TAG = 'search-tapes-debug', DEBUG_KEEP = 5, REPO = process.env.NET_RECORDS_REPO || 'GarryOne/job-pilotto-internal';
+export const TAG = 'search-tapes', DEBUG_TAG = 'search-tapes-debug', DEBUG_KEEP = 5, REPO = process.env.NET_RECORDS_REPO || 'GarryOne/jobadabra-lab';
 const here = path.dirname(new URL(import.meta.url).pathname), PUB = path.join(here, '..', '..', 'desktop', 'e2e', 'net-record.pub.pem');
 
 // One tape's two assets, named by candidate and when it was published.

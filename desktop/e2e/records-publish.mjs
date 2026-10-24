@@ -20,7 +20,7 @@ import {appProfileTexts, personalValues} from '../lib/owner-values.js';
 // One bundle's two assets, named by when it was published: net-records-<UTC stamp>.tgz.enc and .k.enc (the first set, before 14 Oct, is net-records.tgz.enc).
 // suffix: two publishes in the same second (the refill's groups run in parallel) write different assets (NET_RECORDS_BUNDLE_SUFFIX, e.g. -g3).
 export const bundleNames = (date = new Date(), suffix = '') => { const stamp = date.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'; return {bundle: `net-records-${stamp}${suffix}.tgz.enc`, key: `net-records-${stamp}${suffix}.k.enc`}; };
-export const TAG = 'net-records', REPO = process.env.NET_RECORDS_REPO || 'GarryOne/job-pilotto-internal';
+export const TAG = 'net-records', REPO = process.env.NET_RECORDS_REPO || 'GarryOne/jobadabra-lab';
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
   const [root] = process.argv.slice(2), dry = process.argv.includes('--dry');

@@ -47,7 +47,7 @@ test('when every wait fails it says BURST-LIMITED, shows what the private repo a
   assert.match(got.err, /BURST-LIMITED/);
   assert.doesNotMatch(got.err, /no record fetched/);
   assert.match(got.err, /read token: set/, 'which token path was used');
-  assert.match(got.err, /job-pilotto-internal: release not found/, 'the private repo\'s own answer, not only the last fallback\'s');
+  assert.match(got.err, /jobadabra-lab: release not found/, 'the private repo\'s own answer, not only the last fallback\'s');
 });
 
 test('with no read token the failure says so (the fallback to this repo cannot see the private release)', () => {

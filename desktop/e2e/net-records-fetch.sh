@@ -42,7 +42,7 @@ mac_records() {   # the run's shared bundles when given (no gh call); else the p
     mkdir -p "$enc/mac" && cp "$NET_RECORDS_BUNDLES"/net-records* "$enc/mac/" && { echo "net-records-fetch: Mac records from the run's shared bundles"; return 0; }
   fi
   echo "net-records-fetch: read token: $([ -n "${NET_RECORDS_READ_TOKEN:-}" ] && echo set || echo EMPTY) (the private repo is read with it; without it only this repo's own release is tried)" >&2
-  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && gh_get "$NET_RECORDS_READ_TOKEN" "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" -R "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}"; return 0; }
+  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && gh_get "$NET_RECORDS_READ_TOKEN" "${NET_RECORDS_REPO:-GarryOne/jobadabra-lab}" -R "${NET_RECORDS_REPO:-GarryOne/jobadabra-lab}" && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/jobadabra-lab}"; return 0; }
   gh_get "" "${GITHUB_REPOSITORY:-this repo}" && { echo "net-records-fetch: Mac records from this repo's release (fallback)"; return 0; }
   echo "net-records-fetch: no Mac records"; return 1
 }

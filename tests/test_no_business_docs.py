@@ -8,7 +8,7 @@ DOCS = [ROOT / 'CLAUDE.md', ROOT / 'AGENTS.md']   # the other top-level docs are
 DOCS += sorted((ROOT / 'docs').rglob('*.md')) + sorted((ROOT / '.claude' / 'skills').rglob('*.md'))
 # A price or margin of ours, never a per-call AI cost (those are product behaviour the README states).
 BUSINESS = [r'Pro plan', r'Pro price', r'launch price', r'\bmargins?\b', r'\$(?:29|19)\b', r'Stripe Checkout', r'credit top-?ups?']
-PRIVATE_SPEC = re.compile(r'job-pilotto-internal:docs/specs/')
+PRIVATE_SPEC = re.compile(r'(?:job-pilotto-internal|jobadabra-lab):docs/specs/')
 
 
 class NoBusinessDocsTests(unittest.TestCase):

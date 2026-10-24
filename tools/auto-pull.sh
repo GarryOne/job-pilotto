@@ -9,7 +9,8 @@
 #   tools/auto-pull.sh --install     write and load the launch agent (~/Library/LaunchAgents/com.jobpilotto.autopull.plist)
 #   tools/auto-pull.sh --uninstall   unload and remove it
 set -u
-REPO="${JP_AUTOPULL_REPO:-$HOME/job-pilotto}"
+# The checkout moves to ~/jobadabra (rebrand, 24 Oct 2026); ~/job-pilotto stays as a symlink for a while.
+REPO="${JP_AUTOPULL_REPO:-$([ -d "$HOME/jobadabra/.git" ] && echo "$HOME/jobadabra" || echo "$HOME/job-pilotto")}"
 LOG="${JP_AUTOPULL_LOG:-$HOME/Library/Logs/job-pilotto-autopull.log}"
 STATE="${JP_AUTOPULL_STATE:-$HOME/Library/Logs/job-pilotto-autopull.state}"
 LABEL=com.jobpilotto.autopull
