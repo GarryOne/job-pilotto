@@ -39,13 +39,25 @@ class NotAJobTest(unittest.TestCase):
         fake = client(answer(one_job=False))
         data, _ = score.score_one(fake, 'm', CATEGORY, 'Financial analyst in Amsterdam')
         self.assertEqual((data['score'], data['tier'], data['gaps'][0]), (0, 'C', score_not_a_job.GAP))
-        self.assertEqual(len(fake.asked), 1, 'a page that is not a job is not asked again for its salary or level')
+        self.assertEqual(len(fake.asked), 2, 'asked once more whether it is one job, never for its salary or level')
 
     def test_a_zero_never_keeps_a_reason_that_praises_the_fit(self):
         # 24 Oct 2026: two rows showed fit 0 beside "Good fit with some gaps": the score was zeroed, the model's own reason stayed.
         data, _ = score.score_one(client({**answer(one_job=False), 'reason': 'Good fit with some gaps in ETL and cloud skills'}), 'm', CATEGORY, 'p')
         self.assertEqual(data['score'], 0)
         self.assertEqual(data['reason'], score_not_a_job.REASON)
+
+    def test_a_not_one_job_verdict_on_a_real_posting_is_asked_again_and_the_second_answer_wins(self):
+        # 22 Oct 2026: "Data Engineer" and "DevOps Engineer (RPA domain)" (employer-feed postings) were zeroed as "not one job".
+        answers = [answer(one_job=False), answer(one_job=True)]
+        asked = []
+        def create(**params):
+            asked.append(params)
+            return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(answers[len(asked) - 1]))],
+                                   usage=SimpleNamespace(input_tokens=1, output_tokens=1, cache_read_input_tokens=0))
+        data, _ = score.score_one(SimpleNamespace(messages=SimpleNamespace(create=create)), 'm', {**CATEGORY, 'title': 'Data Engineer'}, 'p')
+        self.assertEqual((len(asked), data['score'], data['tier']), (2, 78, 'A'))
+        self.assertIn(score_not_a_job.RECHECK, asked[1]['messages'][0]['content'])
 
     def test_one_job_keeps_its_score(self):
         for one_job in (True, None):   # None: an answer scored before the field existed
