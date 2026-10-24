@@ -64,6 +64,10 @@ export function blocked(name) {
 // ipcMain.handle, answering BLOCKED actions with blocked(name) (demo mode).
 export const guard = handle => (name, listener) => handle(name, BLOCKED.includes(name) ? () => blocked(name) : listener);
 
+// Whether background jobs go to the person's GitHub repo (Always on). Never in the demo: its settings name a repo (so the app shows Always on), but a press on Find jobs
+// must run here, on the script (lib/demo-search.js), and send nothing anywhere. Every handler asks this through main.js `cloud()`.
+export const cloudRuns = (settings, demo) => !demo && !!settings?.cloud?.repo;
+
 // Python jobs in demo mode: only the ones that read the demo folder (the Strategy page, a job's posting).
 const LOCAL = ['src.desktop strategy', 'src.desktop posting'];
 export const pipelineAllowed = args => LOCAL.some(prefix => args.join(' ').startsWith(prefix));

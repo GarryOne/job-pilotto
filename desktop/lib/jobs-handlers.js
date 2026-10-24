@@ -18,7 +18,7 @@ import {hideJobsUntilSearched} from './demo-search.js';
 import {searchTrigger} from './search-steps.js';
 
 export function registerJobsHandlers(ctx) {
-  const {DEMO, JOBS_PAGE, activity, allowanceBlock, app, dispatchCloud, here, ipcMain, log, needsNotion, shell, storage, toWindow, track} = ctx;
+  const {DEMO, JOBS_PAGE, activity, allowanceBlock, app, cloud, dispatchCloud, here, ipcMain, log, needsNotion, shell, storage, toWindow, track} = ctx;
   let jobsLimit = JOBS_PAGE;   // how many rows the list sends; \"Show more\" raises it for the rest of this launch
   // The page the person opened (a name from a fixed list, nothing else): where people go, in order.
   ipcMain.handle('pageView', (_, name) => { if (analyticsLib.PAGES.includes(String(name))) track('page_view', {page: String(name)}); return true; });
@@ -38,7 +38,7 @@ export function registerJobsHandlers(ctx) {
     }
   });
 
-  ipcMain.handle('checkMail', () => (storage.settings().cloud?.repo
+  ipcMain.handle('checkMail', () => (cloud()
     ? dispatchCloud('Gmail check (Check now)', {}, 'mail.yml').then(result => (result.ok
       ? {ok: true, cloud: true} : {ok: false, error: result.error}))
     : pipeline.checkMail(storage, log, 'you').then(({ok, run}) => ({ok, run}))));
@@ -91,7 +91,7 @@ export function registerJobsHandlers(ctx) {
     if (blocked) return blocked;
     const count = Math.max(0, Math.round(Number(why?.count) || 0));
     const note = why?.reason === 'rescore' && count ? `Re-scoring ${count} older score${count === 1 ? '' : 's'}` : '';
-    if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run', searchTrigger(storage.settings()), {note, employers: !!why?.employers});
+    if (!cloud()) return pipeline.refresh(storage, log, 'run', searchTrigger(storage.settings()), {note, employers: !!why?.employers});
     const started = await dispatchCloud('Run now (Refresh)', {mode: 'run'});
     return started.ok ? {ok: true, cloud: true} : {ok: false, error: started.error};
   });

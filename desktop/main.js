@@ -104,7 +104,7 @@ import {registerTelemetryHandlers} from './lib/telemetry-handlers.js';
 
 // Recent activity: Notion ⏱️ Search runs rows (run-history.js), refreshed every 15 s, and the jobs just sent to
 // GitHub that haven't opened their row yet.
-const cloud = () => !!storage?.settings().cloud?.repo;
+const cloud = () => demo.cloudRuns(storage?.settings(), DEMO);   // never in the demo (lib/demo.js cloudRuns)
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
 let analytics = null;  // usage events (lib/analytics.js, PostHog); crash reports (lib/sentry.js) have the same gate and switch as telemetry
 let trail = null;  // lib/sentry.js note(): the last steps, attached to the next crash report
