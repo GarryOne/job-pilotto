@@ -11,7 +11,7 @@ const read = file => readFileSync(join(renderer, file), 'utf8');
 
 test('only the shared row renderer draws a job row (a new list uses it, so it gets the fixed height)', () => {
   const drawers = walk(renderer).filter(f => f.endsWith('.js') && /el\('article', 'job-row/.test(readFileSync(f, 'utf8')));
-  assert.deepEqual(drawers.map(f => f.slice(renderer.length)), ['pages/jobs-render.js']);
+  assert.deepEqual(drawers.map(f => f.slice(renderer.length).replaceAll('\\', '/')), ['pages/jobs-render.js']);
 });
 
 test('the row always draws its reason and chip lines, and its place is one line', () => {
