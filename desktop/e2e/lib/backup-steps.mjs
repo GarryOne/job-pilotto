@@ -66,7 +66,7 @@ export async function backupTimerStep(ctx) {
   await ctx.page.evaluate(() => window.pilot.saveSettings({lastBackupAt: ''}));
   const before = saved(ctx);
   await ctx.relaunch({JOB_PILOTTO_E2E_BACKUP_TICK: '1500'});   // a tick every 1.5 s instead of every 6 hours
-  const wait = async (test, what) => { for (let i = 0; i < 60; i++) { if (test()) return; await ctx.page.waitForTimeout(250); } throw new Error(what); };
+  const wait = async (test, what) => { for (let i = 0; i < 60; i++) { if (test()) return; await ctx.page.waitForTimeout(250); } throw new Error(`${what}; the app said: ${appLogLines(ctx.profile).filter(line => /\[data\]|backup/i.test(line)).slice(-4).map(line => line.slice(0, 200)).join(' | ') || 'nothing about a backup'}`); };   // a start that never backed up says why (Linux run 12, 24 Oct: the step's own log was overwritten by the later steps)
   await wait(() => saved(ctx, 'due at start') > 0, 'a backup that was due did not run when the app started');
   await ctx.page.waitForTimeout(5000);   // three ticks: none of them may back up again
   if (saved(ctx) - before !== 1) throw new Error(`a due backup should run once at start and not again on the ticks, it ran ${saved(ctx) - before} times`);
