@@ -17,6 +17,7 @@ from . import ats, careers, host_pace
 
 TIMEOUT_MS = 20000
 SETTLE_MS = 1500          # after the page loads, for the lists a script fills in
+IDLE_MS = 6000            # at most this long for the page's own requests to finish first (24 Oct 2026: a board's category page showed its menu on one load and 32 jobs on the next)
 HOST_DELAY_S = 1.0        # between two pages of one site
 MAX_PAGES = 60            # per process: a run is not a crawl of the web
 CHALLENGE = ('just a moment', 'attention required', 'verify you are human', 'captcha', 'access denied', 'are you a robot')
@@ -119,6 +120,10 @@ def _render(url, parts):
             raise host_pace.Busy(url, host_pace.waiting(url))
         if response is not None and response.status in host_pace.REFUSED:
             raise Refused(f'HTTP {response.status}')
+        try:
+            page.wait_for_load_state('networkidle', timeout=IDLE_MS)
+        except Exception:  # noqa: BLE001 — a page that never goes quiet (a poll, a tracker): read as it stands
+            pass
         page.wait_for_timeout(SETTLE_MS)
         markup = page.content()
     finally:

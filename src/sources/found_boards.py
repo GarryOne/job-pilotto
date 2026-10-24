@@ -27,6 +27,7 @@ AI_ASKS = 2           # search words whose page the AI page reader may read per 
 IDLE_STOP = 2         # the full read stops a board after this many queries in a row that add no new job
 MAX_PLACES = 2        # and places
 BROWSER_RETRY_DAYS = 30   # a board marked 'browser' is looked at again after this long (its page or routes may have changed)
+LADDER = 2   # the version of the other ways below: a board that went up an older ladder without a relevant job goes up this one once (24 Oct 2026: sections, scripts)
 BOARD_WORKERS = 4         # boards read at once (each its own site, its own pages one after another): the slice ends with its slowest board, not their sum
 EARLY_MINUTES = 60        # a board read in the first-jobs slice hands its jobs to the same search's full read for this long
 REPLACED = {'browser': 'refuses automated reading', 'gone': "can't be reached", 'one employer': "is one employer's own site",
@@ -190,16 +191,23 @@ def read_since(stamp):
             if (entry.get('last_read') or '') >= stamp}
 
 
-def _section(board, page, search, fetch, judge):
-    """(jobs, address) from the section of the board's home page the AI picks for the search's role; ([], None) with the page reader off (tests)."""
+def _section(board, page, search, fetch, judge, show=None):
+    """(jobs, address) from the section of the board's home page the AI picks for the search's role; ([], None, False) with the page reader off (tests); the third is True when the section's page was read after its scripts ran."""
     terms = _terms(search, 1)
     if careers.READER is None or not page[1] or not terms:
-        return [], None
+        return [], None, False
     from ..ai import decide
     try:
-        return board_sections.read(page[1], page[0], terms[0], fetch, decide.decide, judge, lambda found: _shaped(board, found))
+        rendered = []
+        found, section = board_sections.read(page[1], page[0], terms[0], fetch, decide.decide, judge, lambda found: _shaped(board, found), show, rendered)
+        return found, section, bool(rendered)
     except Exception:  # noqa: BLE001 — a fallback never breaks the read
-        return [], None
+        return [], None, False
+
+
+def _went_up(entry, proposed):
+    """The board went up this version of the ladder for this proposed link (and gave no relevant job)."""
+    return entry.get('form_for') == proposed and entry.get('ladder') == LADDER
 
 
 def _another_way(board, entry, proposed, search, fetch, judge, before, show=None):
@@ -209,7 +217,7 @@ def _another_way(board, entry, proposed, search, fetch, judge, before, show=None
     itself (a feed, its home page's own data or the sitemap in robots.txt: board_routes, job pages naming the search words first), kept
     as its route (owner, 18 Oct 2026: Randstad listed warehouse jobs for "financial analyst" and has a job sitemap). Else `before`; the
     board is not looked at again while the proposed link stays the same."""
-    entry['form_for'] = proposed
+    entry['form_for'], entry['ladder'] = proposed, LADDER
     bare = _bare(proposed)
     if bare:   # an extra filter in the link (a sector, a radius): the same search with only the words and the place
         try:
@@ -243,9 +251,10 @@ def _another_way(board, entry, proposed, search, fetch, judge, before, show=None
             entry['form_url'] = entry['search_url'] = template
             print(f"Job boards found: {board['name']} read through its own search form", flush=True)
             return again, state, relevant
-    listed, section = _section(board, page, search, fetch, judge)   # the board's own section for this kind of work (board_sections.py)
+    listed, section, scripted = _section(board, page, search, fetch, judge, show)   # the board's own section for this kind of work (board_sections.py)
     if listed:
         entry['search_url'] = section
+        entry['rendered'] = scripted or entry.get('rendered', False)
         print(f"Job boards found: {board['name']} read from its own section", flush=True)
         return listed, 'ok', judge(listed)
     try:
@@ -377,7 +386,7 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             entry['last_read'] = stamp
             board_yield.record(entry, 0, 0, 'empty')
             return
-        if not (early or relevant or route) and state != 'browser' and entry.get('form_for') != proposed:   # once per proposed link
+        if not (early or relevant or route) and state != 'browser' and not _went_up(entry, proposed):   # once per proposed link and version of the ladder
             found, state, relevant = _another_way(board, entry, proposed, search, fetch, judge, (found, state, relevant), show=show)
             _retry_when_unjudged(entry, relevant)
         entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],

@@ -81,8 +81,41 @@ class ReadTests(unittest.TestCase):
                               decider({'Toate joburile': 'hub', 'Tech și programare': 'best'}))
         self.assertEqual((len(jobs), url), (3, 'https://jobs.example/it'))
 
+    def test_a_hub_of_hubs_is_followed_down_to_the_section(self):
+        """24 Oct 2026: a board's home page links its jobs page, which links its categories, which link the IT field."""
+        jobs, url = self.read({'https://jobs.example/lucrari': '<a href="/categorii">Toate domeniile</a>', 'https://jobs.example/categorii': '<a href="/it">Tech și programare</a>',
+                               'https://jobs.example/it': SECTION}, decider({'Toate joburile': 'hub', 'Toate domeniile': 'hub', 'Tech și programare': 'best'}))
+        self.assertEqual((len(jobs), url), (3, 'https://jobs.example/it'))
+
     def test_a_section_built_by_scripts_gives_nothing_and_breaks_nothing(self):
         self.assertEqual(self.read({'https://jobs.example/it': SHELL}, decider({'Tech și programare': 'best'})), ([], None))
+
+    def test_a_section_built_by_scripts_is_read_in_the_browser_and_marked(self):
+        rendered, shown = [], []
+        with mock.patch.object(board_pages, 'allowed', return_value=True):
+            jobs, url = board_sections.read(NAV, HOME, 'software engineer', fetcher({'https://jobs.example/it': SHELL}), decider({'Tech și programare': 'best'}),
+                                            lambda jobs: jobs, show=lambda page: shown.append(page) or SECTION, rendered=rendered)
+        self.assertEqual((len(jobs), url, rendered, shown), (3, 'https://jobs.example/it', ['https://jobs.example/it'], ['https://jobs.example/it']))
+
+    def test_a_section_whose_plain_page_is_only_a_menu_of_job_words_is_read_in_the_browser_first(self):
+        menu = '<a href="/jobs/by/remote/">Remote</a><a href="/jobs/by/part-time/">Part time</a><a href="/jobs/by/new/">New</a>'
+        cards = ''.join(f'<a href="/job/engineer-{n}/1{n}345/">Engineer {n}</a>' for n in range(4))
+
+        def show(page):
+            return cards
+        with mock.patch.object(board_pages, 'allowed', return_value=True):
+            plain_menu = fetcher({'https://jobs.example/it': menu})
+            plain_cards = fetcher({'https://jobs.example/it': cards})
+            self.assertEqual(board_sections._ways('https://jobs.example/it', plain_menu, show), (show, plain_menu))
+            self.assertEqual(board_sections._ways('https://jobs.example/it', plain_cards, show), (plain_cards, show))
+            self.assertEqual(board_sections._ways('https://jobs.example/it', plain_cards, None), (plain_cards,))
+
+    def test_a_static_section_does_not_open_the_browser(self):
+        shown, rendered = [], []
+        with mock.patch.object(board_pages, 'allowed', return_value=True):
+            board_sections.read(NAV, HOME, 'software engineer', fetcher({'https://jobs.example/it': SECTION}), decider({'Tech și programare': 'best'}),
+                                lambda jobs: jobs, show=lambda page: shown.append(page) or SHELL, rendered=rendered)
+        self.assertEqual((shown, rendered), ([], []))
 
     def test_a_section_robots_txt_forbids_is_not_fetched(self):
         with mock.patch.object(board_pages, 'allowed', return_value=False):
@@ -125,6 +158,13 @@ class RetryTests(unittest.TestCase):
                 entry = {'form_for': 'https://a.example/q?w={role}'}
                 found_boards._retry_when_unjudged(entry, relevant)
                 self.assertEqual('form_for' in entry, kept)
+
+    def test_a_board_that_went_up_an_older_ladder_goes_up_the_new_one_once(self):
+        link = 'https://a.example/q?w={role}'
+        for entry, went in (({'form_for': link, 'ladder': found_boards.LADDER}, True), ({'form_for': link}, False), ({'form_for': link, 'ladder': 1}, False),
+                            ({'form_for': 'https://a.example/other', 'ladder': found_boards.LADDER}, False), ({}, False)):
+            with self.subTest(entry=entry):
+                self.assertEqual(found_boards._went_up(entry, link), went)
 
 
 if __name__ == '__main__':

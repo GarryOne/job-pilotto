@@ -198,8 +198,8 @@ def numbered_links(found, host, own):
     return list(dict.fromkeys(best)) if len(set(best)) >= NUMBERED else []
 
 
-def job_links(markup, base):
-    """Links on a listing page that look like single job pages of the same site."""
+def _job_paths(markup, base):
+    """(host, own path, the same-site links that look like job pages, those of them that end in an id)."""
     host = (urllib.parse.urlsplit(base).hostname or '').removeprefix('www.')
     own = urllib.parse.urlsplit(base).path.rstrip('/')
     out = []
@@ -208,9 +208,20 @@ def job_links(markup, base):
         if (parts.hostname or '').removeprefix('www.') == host and JOB_PATH.search(parts.path) and parts.path.rstrip('/') != own:
             out.append(url.split('#')[0])
     out = list(dict.fromkeys(out))
+    return host, own, out, [url for url in out if JOB_ID.search(urllib.parse.urlsplit(url).path.rstrip('/'))]
+
+
+def has_job_ids(markup, base):
+    """The page links at least 3 job pages that end in an id: a list built into the page, not only a menu of job words (a page whose cards
+    come by script has none until they do, 24 Oct 2026)."""
+    return len(_job_paths(markup, base)[3]) >= 3
+
+
+def job_links(markup, base):
+    """Links on a listing page that look like single job pages of the same site."""
+    host, own, out, with_id = _job_paths(markup, base)
     # Single job pages end in an id (a UUID, a long number): when the page has some, those are the jobs and the rest is its menu
     # ("/karriere/trainee"). 6 Oct 2026: Migros's menu links filled the quota before its 31 job links on the page.
-    with_id = [url for url in out if JOB_ID.search(urllib.parse.urlsplit(url).path.rstrip('/'))]
     chosen = with_id if len(with_id) >= 3 else out
     if len(with_id) < 3:   # no job addresses with an id: a list of cards that differ only in their number beats a menu of job words
         chosen = numbered_links(links(markup, base), host, own) or chosen

@@ -7,8 +7,9 @@ import urllib.parse
 
 from . import board_pages, careers, careers_parse
 
+DEPTH = 3       # pages of hubs followed down from the home page (a home page, its jobs hub, its categories hub)
 MAX_SECTIONS = 2      # section pages read per board
-MAX_HUBS = 1          # hub pages opened per board (a link to "all categories", then the sections on it)
+MAX_HUBS = 2          # hub pages opened per page (a link to "all categories", then the sections on it)
 MAX_LINKS = 80        # links of one page sent to the AI
 MAX_LABEL = 70        # a longer link text is a sentence, not a section name
 ANSWERS = ('best', 'near', 'hub', 'other')
@@ -49,32 +50,62 @@ def pick(markup, page_url, role, decide):
     return (best + near)[:MAX_SECTIONS], [url for url, answer in pairs if answer == 'hub'][:MAX_HUBS]   # the exact field first, then close ones
 
 
-def read(page, address, role, fetch, decide, relevant, shape=lambda found: found):
+def read(page, address, role, fetch, decide, relevant, shape=lambda found: found, show=None, rendered=None):
     """(jobs, section address) from the board's sections reachable from this page (its markup, fetched at address): its own sections, else the
     sections on one hub page. shape(found) -> the jobs in the aggregators' shape (with the board's place for those that name none), relevant(shaped) -> the
-    jobs worth keeping; the first section giving some is returned, shaped, with all its jobs."""
-    sections, hubs = pick(page, address, role, decide)
-    for hub in hubs if not sections else []:
-        hub_page = _page(hub, fetch)
-        if hub_page:
-            sections, _ = pick(hub_page, hub, role, decide)
-    for url in sections:
-        listing = _page(url, fetch)
-        if not listing:
-            continue
-        found = careers.jsonld_jobs(listing, url) or careers._asked(url, listing, [], fetch) or careers.read_page_from(listing, url, fetch)
-        if found:
-            found = found + board_pages.more(url, listing, found, fetch, lambda markup, link: careers.jsonld_jobs(markup, link) or careers.read_page_from(
-                markup, link, fetch), lambda some: relevant(shape(some)))
-        if found and relevant(shape(found)):
-            return shape(found), url
+    jobs worth keeping; the first section giving some is returned, shaped, with all its jobs. show: reads a page after its scripts ran (headless
+    browser), tried on a section whose plain page gave no relevant job; the section's address is then added to `rendered` (24 Oct 2026: two Moldovan
+    boards list their sections' jobs by script only)."""
+    level, seen = [(page, address)], {address}
+    for _ in range(DEPTH):   # the page's own sections first, then the sections of the hubs it names, and theirs
+        hubs = []
+        for markup, where in level:
+            sections, more_hubs = pick(markup, where, role, decide)
+            for url in sections:
+                if url in seen:
+                    continue
+                seen.add(url)
+                for how in _ways(url, fetch, show):
+                    listing = _page(url, how, fetch)
+                    found = _jobs(url, listing, fetch, relevant, shape) if listing else []
+                    if found and relevant(shape(found)):
+                        if how is show and rendered is not None:
+                            rendered.append(url)
+                        return shape(found), url
+            hubs += [hub for hub in more_hubs if hub not in seen]
+        level = []
+        for hub in hubs[:MAX_HUBS]:
+            seen.add(hub)
+            hub_page = _page(hub, fetch, fetch)
+            if hub_page:
+                level.append((hub_page, hub))
+        if not level:
+            break
     return [], None
 
 
-def _page(url, fetch):
+def _ways(url, fetch, show):
+    """How to read a section, in order: the plain page, then the browser; the browser first when the plain page has no job addresses of its own
+    (a menu of job words only: its cards come by script; 24 Oct 2026, a board's IT category gave its 7 menu links as jobs)."""
+    if not show:
+        return (fetch,)
+    plain = _page(url, fetch, fetch)
+    return (fetch, show) if not plain or careers_parse.has_job_ids(plain, url) or careers.jsonld_jobs(plain, url) else (show, fetch)
+
+
+def _jobs(url, listing, fetch, relevant, shape):
+    """Every job of a section's page (its first pages): its own job data, the page reader, or the cards, and the next pages while they give relevant ones."""
+    found = careers.jsonld_jobs(listing, url) or careers._asked(url, listing, [], fetch) or careers.read_page_from(listing, url, fetch)
+    if found:
+        found = found + board_pages.more(url, listing, found, fetch, lambda markup, link: careers.jsonld_jobs(markup, link) or careers.read_page_from(
+            markup, link, fetch), lambda some: relevant(shape(some)))
+    return found
+
+
+def _page(url, get, fetch):
     if not board_pages.allowed(url, fetch):
         return ''
     try:
-        return str(fetch(url) or '')
+        return str(get(url) or '')
     except Exception:  # noqa: BLE001 — a section that does not answer: the next one
         return ''
