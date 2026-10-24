@@ -18,6 +18,7 @@ export const budgetMinutes = ci ? 0 : 10;   // a Mac's first run builds the work
 export const shards = 2;   // the journeys take turns across two gate jobs (JP_REPLAY_SHARD, suites/apply.mjs runApply); a Mac run is the whole suite
 export const stepSharded = true;   // its slices are steps, not recorded cases (test/suite-shards.test.mjs)
 export const browser = true;
+export const keepGoing = true;   // as `apply`: a failed journey never hides the others; the setup step is critical (suites/apply.mjs)
 export const engine = flowsEngine();   // the proxy answers the app's AI calls (CI and the matrix); LIVE=1: this Mac's Claude Code; LIVE_ENGINE overrides (lib/engine.mjs)
 export const macos = true;   // runs on a macOS runner: the real Chrome extension, opened through `open` as on a Mac (lib/plan.mjs runnerOf)
 export const name = 'applyflows';

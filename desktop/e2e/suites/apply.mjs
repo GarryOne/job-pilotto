@@ -28,6 +28,8 @@ export const macos = true;   // runs on a macOS runner: the real Chrome extensio
 const SETUP = 'the app has an applicant';
 export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, 'multi-step form'], 'Tailor CV': [SETUP], 'tailored CV': [SETUP], 'without a kit': [SETUP],
   'submits a form': [SETUP], 'I submitted it': [SETUP, 'Apply opens a new tab'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'sign-in page': [SETUP], 'menu whose choices': [SETUP], 'Needs your attention" from': [SETUP], 'appears only when + is pressed': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'second browser': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
+// One failed step never hides the rest: the runner records it and goes on (lib/runner.mjs); only the setup step marked `critical` stops the suite. A step that needs another one is named in stepNeeds.
+export const keepGoing = true;
 export const name = 'apply';
 
 
@@ -128,7 +130,7 @@ export async function runApply(ctx, parts) {
       });
     ctx.browser = await launchBrowser({port: forms.port, spool: ctx.shim.spool, extensionDir: ctx.extensionDir, real: !!live});
     await ctx.browser.serviceWorker();
-  }, {needs: ctx.needs});
+  }, {needs: ctx.needs, critical: true});   // the setup: every later step needs it, so only this one stops the suite
 
   // What the extension itself holds: which tabs it armed, whose job each follows, who opened whom and when its worker booted (a cause is in here, not in the page).
   async function dumpExtension() {
