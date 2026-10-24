@@ -142,11 +142,11 @@ export function renderJobs() {
       meta.append(el('span', 'sep', '·'), el('span', '', part));
     }
     role.append(meta);
-    if (job.reason) role.append(Object.assign(el('div', 'reason', job.reason), {title: job.reason}));
+    role.append(Object.assign(el('div', 'reason', job.reason || ''), job.reason ? {title: job.reason} : {}));   // always: no reason keeps its line, so every row is the same height
     const chips = el('div', 'tags');
     // Three skill tags, the rest behind "+N".
     const skills = tags(job, 8);
-    for (const skill of skills.slice(0, 3)) chips.append(tag(skill));
+    for (const skill of skills.slice(0, 3)) chips.append(tag(skill, {title: skill}));   // one line: a long phrase is cut with … and read in full on hover (style.css .tags)
     if (skills.length > 3) chips.append(tag(`+${skills.length - 3}`, {title: skills.slice(3).join(', ')}));
     // A section of the job's page (kit, rejection review): Notion's page when the store has one, else the job's page here (pages/job-panel.js).
     const openPage = (tab, event) => (job.notion_url ? window.pilot.openNotion(job.notion_url, event?.metaKey) : openJobPanel(job, tab));
@@ -160,7 +160,7 @@ export function renderJobs() {
     if (job.rejection) chips.append(tag(`🔎 ${job.rejection}`, {title: job.rejection_lesson || 'Why it was rejected',
       onClick: event => openPage('review', event)}));
     if (busyNotes.has(job.url)) chips.append(tag(busyNotes.get(job.url), {busy: true}));
-    if (chips.childElementCount) role.append(chips);
+    role.append(chips);   // always: a row without chips keeps the chip line's height, so every row is the same
 
     const company = el('div', 'company');
     const logo = avatar(job.company);
@@ -168,12 +168,13 @@ export function renderJobs() {
     badge.style.setProperty('--hue', logo.hue);
     company.append(badge, el('span', 'name', job.company));
 
+    // One line, so every row is as tall as the next: "Moldova · Remote" (the mode's pill after the place; both cut with … and read in full on hover).
     const place = el('div', 'place');
-    if (job.location) { const line = el('div', 'place-line'), shown = shortPlace(job.location); line.append(icon('pin'), Object.assign(el('span', '', shown.text), shown.full ? {title: shown.full} : {})); place.append(line); }
-    if (job.work_mode) {
+    if (job.location || job.work_mode) {
       const line = el('div', 'place-line');
-      const mode = workMode(job.work_mode);
-      line.append(icon('globe'), pill(mode.label, MODE_TONE[mode.kind] || 'neutral', {title: job.work_mode}));
+      line.append(icon(job.location ? 'pin' : 'globe'));
+      if (job.location) { const shown = shortPlace(job.location); line.append(Object.assign(el('span', '', shown.text), {title: shown.full || shown.text})); }
+      if (job.work_mode) { const mode = workMode(job.work_mode); line.append(pill(mode.label, MODE_TONE[mode.kind] || 'neutral', {title: job.work_mode})); }
       place.append(line);
     }
 
