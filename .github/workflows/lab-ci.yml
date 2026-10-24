@@ -1,0 +1,46 @@
+# Runs the private lab repo's tests here (owner, 24 Oct 2026): the lab's own Actions never start (its account payments failed), this repo's minutes are free.
+# Reads the lab with the CI App (this exception to "public never reads private" is the central scout's), posts one `lab-ci` commit status on the lab PR.
+# This log is PUBLIC: only counts are printed (tools/lab_ci.py), no artifact, no step echoes. Guarded by tests/test_lab_ci.py.
+name: Lab CI
+on:
+  workflow_dispatch:   # tools/ship.sh dispatches it for a lab PR it opened or pushed
+    inputs:
+      pr:
+        description: Lab PR number
+        required: true
+  schedule:
+    - cron: '*/20 * * * *'   # the sweep: any open lab PR head with no lab-ci result yet
+    - cron: '25 5 * * *'     # lab main, once a day
+permissions:
+  contents: read
+concurrency:
+  group: lab-ci
+  cancel-in-progress: false
+jobs:
+  lab-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Read access to the private lab and a status on its commits (the CI App, the lab only)
+        id: lab_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: GarryOne
+          repositories: jobadabra-lab
+          permission-contents: read
+          permission-pull-requests: read
+          permission-statuses: write
+      - name: Run the lab tests (the log shows counts only)
+        env:
+          LAB_TOKEN: ${{ steps.lab_token.outputs.token }}
+          LAB_EVENT: ${{ github.event_name == 'schedule' && (github.event.schedule == '25 5 * * *' && 'schedule-main' || 'schedule') || github.event_name }}
+          LAB_PR: ${{ inputs.pr }}
+        run: python3 tools/lab_ci.py
