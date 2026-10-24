@@ -10,6 +10,7 @@ import {panelClosed, panelOpened, remembered} from './nav.js';
 import {toastMessage} from './startup.js';
 import {renderDraft, showDraftIntro} from './strategy-review.js';
 import {goStep} from './wizard.js';
+import {CV_FILES} from '../cv-files.js';
 import {KIND, kindOf, capital, outcome, refreshGmailConnection} from './activity-basics.js';
 import {lastActivity, renderActivity} from './activity-render.js';
 export let kindFilter = '';        // the header's filter: one kind of run at a time ('' = every kind)
@@ -68,8 +69,16 @@ export function announceRuns({running, runs}) {
   }
 }
 
+// Setup step 2's card: empty (drop-zone wording) or holding the chosen file (name, when added) with Replace as its one button.
 export function refreshCv() {
-  $('cv-name').textContent = shared.state.settings.cvName ? `✓ ${shared.state.settings.cvName}` : 'No CV chosen yet';
+  const {cvName, cvAddedAt} = shared.state.settings, kinds = CV_FILES.label;
+  show($('cv-file'), !!cvName);
+  $('cv-name').textContent = cvName || 'No CV chosen yet';
+  $('cv-meta').textContent = cvName && cvAddedAt ? `Added ${new Date(cvAddedAt).toLocaleDateString(undefined, {day: 'numeric', month: 'short'})}` : '';
+  $('cv-choose').classList.toggle('primary', !cvName);   // chosen: Replace is quiet, Continue is the one primary
+  $('cv-choose').classList.toggle('secondary', !!cvName);
+  $('cv-choose-label').textContent = cvName ? 'Replace CV…' : `Choose your CV (${kinds})…`;
+  $('cv-kinds').textContent = `· ${kinds}`;
   $('cv-next').disabled = !shared.state.hasCv;
 }
 

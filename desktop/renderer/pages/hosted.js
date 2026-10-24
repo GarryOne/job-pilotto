@@ -32,7 +32,7 @@ const button = (id, label, cls) => { const node = el('button', cls, label); node
 // Wizard step 4. Skip only leaves Always on off; the rest of the app works as before.
 export function mountStep() {
   if ($('hosted-step-root')) return;
-  const step = el('div', 'step');
+  const step = el('div', 'step magic-stage');   // a small form: one centered column, like the CV card (magic.css)
   step.id = 'hosted-step-root'; step.dataset.step = 'hosted'; step.hidden = true;
   const head = el('header', 'view-head step-head'), text = el('div');
   text.append(el('span', 'eyebrow', 'Step 4 of 5'), el('h1', '', HEADLINE), el('p', 'muted subtitle', 'A short list of what is new, by e-mail, and in the app when you open it.'));
