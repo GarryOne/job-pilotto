@@ -42,3 +42,36 @@ test('holders also asks for any process whose command line names the folder', as
   holders({platform: 'win32', dir: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\jp-e2e-Eq7E5e', run: (_shell, args) => { script = args.at(-1); return {stdout: ''}; }});
   assert.match(script, /CommandLine -like '\*jp-e2e-Eq7E5e\*'/);
 });
+
+test('a folder still held after endAfter has its own leftover processes ended once, then probed free', async () => {
+  const held = refusing(6);
+  let ended = 0;
+  const waited = await waitForFolderFree('/p/data', {every: 1, endAfter: 3, rename: held.rename, exists: () => true, end: () => { ended += 1; return [7, 8]; }});
+  assert.equal(ended, 1);
+  assert.equal(waited, 6);
+});
+
+test('endLeftovers: only on Windows, only for a run folder named jp-e2e-, and a failing shell ends nothing', async () => {
+  const {endLeftovers} = await import('../lib/folder-free.mjs');
+  const never = () => assert.fail('no shell');
+  assert.deepEqual(endLeftovers({platform: 'darwin', dir: '/t/jp-e2e-abc', run: never}), []);
+  assert.deepEqual(endLeftovers({platform: 'win32', dir: 'C:\\Users\\x', run: never}), []);
+  let script = '';
+  assert.deepEqual(endLeftovers({platform: 'win32', dir: 'C:\\Temp\\jp-e2e-m8crhW', run: (_s, args) => { script = args.at(-1); return {stdout: '2016\r\n4296\r\n'}; }}), ['2016', '4296']);
+  assert.match(script, /CommandLine -like '\*jp-e2e-m8crhW\*'/);
+  assert.deepEqual(endLeftovers({platform: 'win32', dir: 'C:\\Temp\\jp-e2e-m8crhW', run: () => { throw new Error('x'); }}), []);
+});
+
+test('the class: every place that waits for a held app folder goes through the one shared wait, which can end the run\'s own leftovers', async () => {
+  const fsx = await import('node:fs'), pathx = await import('node:path'), url = await import('node:url');
+  const root = pathx.resolve(pathx.dirname(url.fileURLToPath(import.meta.url)), '..');
+  const sources = dir => fsx.readdirSync(pathx.join(root, dir)).filter(name => name.endsWith('.mjs')).map(name => `${dir}/${name}`);
+  const read = file => fsx.readFileSync(pathx.join(root, file), 'utf8');
+  const all = [...sources('lib'), ...sources('suites')].filter(file => file !== 'lib/folder-free.mjs');
+  // Callers of the shared wait: the app's own exit wait (ctx.waitForExit); a suite waits through it, never with its own rename loop.
+  assert.deepEqual(all.filter(file => /waitForFolderFree\(/.test(read(file))), ['lib/context.mjs']);
+  assert.deepEqual(all.filter(file => /ctx\.waitForExit\(/.test(read(file))), ['suites/settings.mjs']);
+  // The app's profile folder is the `jp-e2e-` one the leftovers' command lines name; a rename of the prefix would silently end nothing.
+  assert.match(read('lib/app.mjs'), /mkdtempSync\(path\.join\(os\.tmpdir\(\), 'jp-e2e-'\)\)/);
+  assert.match(read('lib/folder-free.mjs'), /\^jp-e2e-/);
+});

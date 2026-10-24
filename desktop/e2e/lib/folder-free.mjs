@@ -17,13 +17,24 @@ export function holders({run = spawnSync, platform = process.platform, dir = ''}
   try { return String(run('powershell', ['-NoProfile', '-Command', script], {encoding: 'utf8', timeout: 15000, windowsHide: true}).stdout || '').trim().split(/\r?\n/).filter(Boolean).map(line => line.slice(0, 220)).slice(0, 25).join(' | '); } catch { return ''; }
 }
 
-export async function waitForFolderFree(dir, {timeout = 20000, every = 250, rename = fs.renameSync, exists = fs.existsSync, who = () => holders({dir})} = {}) {
+// Windows: end the leftovers of THIS run's app (its processes carry the run's own throwaway folder name in their command line: --user-data-dir=...\\jp-e2e-xxxx) once the wait
+// has run `endAfter` ms (beta 17, 24 Oct: the app's main, gpu and crashpad-handler processes outlived the exit and held the folder 20 s). -> the process ids ended, or [].
+export function endLeftovers({run = spawnSync, platform = process.platform, dir = ''} = {}) {
+  const name = String(dir).split(/[\\/]/).pop();
+  if (platform !== 'win32' || !/^jp-e2e-/.test(name)) return [];
+  const script = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*${name.replace(/'/g, "''")}*' -and $_.ProcessId -ne $PID -and $_.Name -match 'electron|python|node|crashpad' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; $_.ProcessId }`;
+  try { return String(run('powershell', ['-NoProfile', '-Command', script], {encoding: 'utf8', timeout: 15000, windowsHide: true}).stdout || '').trim().split(/\r?\n/).filter(Boolean); } catch { return []; }
+}
+
+export async function waitForFolderFree(dir, {timeout = 20000, every = 250, endAfter = 8000, rename = fs.renameSync, exists = fs.existsSync, who = () => holders({dir}), end = () => endLeftovers({dir})} = {}) {
   const aside = `${dir}.probe`;
   let waited = 0;
+  let ended = false;
   while (exists(dir)) {
     try { rename(dir, aside); rename(aside, dir); return waited; } catch (error) {
       if (!LOCKED.has(error.code)) throw error;
       if (waited >= timeout) throw new Error(`the data folder stayed held by a process after the app exited (${waited / 1000} s): ${error.message}${who() ? `; processes still running: ${who()}` : ''}`);
+      if (!ended && waited >= endAfter) { ended = true; const gone = end(); if (gone.length) console.log(`  the data folder was still held after ${waited / 1000} s: ended its leftover processes ${gone.join(', ')}`); }
       await pause(every); waited += every;
     }
   }
