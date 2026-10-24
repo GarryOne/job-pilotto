@@ -139,7 +139,7 @@ jobs:
         timeout-minutes: 20   # a hung test used to hold this step for the job's 6 hours (every run from 21 Oct 2026); --test-timeout in package.json names it instead
         working-directory: desktop/e2e
         # The safety-critical set, as harness.yml runs it: this job's headless shell cannot load an extension, so the whole folder failed ~22 real-extension tests here; harness-daily.yml runs every file with the full browser.
-        run: node --test --test-reporter=spec $(node test-sets.mjs pr)
+        run: node test-sets.mjs pr | xargs node --test --test-reporter=spec
       # Today's e2e AI budget (ai-spend.mjs; owner, 7 Oct 2026: "$30 a week"): spent, this run skips the paid judge and the screenshot review.
       - name: Today's e2e AI budget
         id: spend
