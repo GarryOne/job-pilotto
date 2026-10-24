@@ -111,7 +111,7 @@ The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs
 - **Before a PR: one side-by-side preview, the owner's yes** (owner, 18 Oct 2026: "this workflow is probably even better than just relying on the PR
   before/after... Every session that works on UI, should open a preview image with side by side"). ONE image: reference (the owner's mockup, or today's
   screen as before) | your render, demo data, same scale, labelled (`cd desktop && npm run side-by-side -- <reference.png> <render.png> --out <file.png>`);
-  light and dark are two images. `open` it for the owner, ask ship / change what (AskUserQuestion, with a recommendation), and ship only after his yes.
+  light and dark are two images; the file name starts with the session's short name (`npm run side-by-side` adds it: `a2-<name>.png`), so the owner sees whose preview is open. `open` it for the owner, ask ship / change what (AskUserQuestion, with a recommendation), and ship only after his yes.
   The PR's before/after stays the record.
 
 ## Structure
