@@ -15,6 +15,7 @@
 //   --width <px>       the window's width, to check a narrow layout (default 1280; the window's minimum is lib/main-window.js MIN_WIDTH)
 //   --out <file.png>   where the picture goes (default: $TMPDIR/job-pilotto-shot.png)
 //   --search <json>    written as config/search.json (a state the demo lacks: the strategy's lists)
+//   --theme <light|dark>  the app's theme (Settings → Appearance; the demo's default is dark). A data-theme attribute set by --js does nothing: the CSS follows Electron's theme source.
 //   --settings <json>  merged into the demo's settings.json first (a state the demo lacks: '{"store":"sqlite"}')
 // The full reference set is npm run ui-shots (only after big UI changes, or when asked).
 import {spawnSync} from 'node:child_process';
@@ -31,7 +32,7 @@ const args = process.argv.slice(2);
 const options = name => args.flatMap((arg, i) => arg === `--${name}` ? [args[i + 1]] : []);
 const flag = name => args.includes(`--${name}`);
 const option = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
-const VALUED = ['select', 'mark', 'session', 'js', 'eval', 'output', 'out', 'width', 'settings'];
+const VALUED = ['select', 'mark', 'session', 'js', 'eval', 'output', 'out', 'width', 'settings', 'theme'];
 const page = args.find((arg, i) => !arg.startsWith('--') && !VALUED.includes(args[i - 1]?.slice(2))) || 'focus';
 
 const wait = ms => `await new Promise(r => setTimeout(r, ${ms}));`;
@@ -52,9 +53,9 @@ const script = code => `(async () => { ${code} })()`;
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shot-'));
 for (const file of fs.readdirSync(path.join(desktop, 'demo'))) if (file !== 'jobs.json') fs.copyFileSync(path.join(desktop, 'demo', file), path.join(data, file));
 // --settings '<json>': merged into the demo copy's settings.json, to render a state the demo doesn't have (e.g. '{"store":"sqlite"}').
-if (option('settings')) {
+if (option('settings') || option('theme')) {
   const file = path.join(data, 'settings.json');
-  fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), ...JSON.parse(option('settings'))}, null, 2));
+  fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), ...JSON.parse(option('settings') || '{}'), ...(option('theme') ? {theme: option('theme')} : {})}, null, 2));
 }
 // --search '<json>': written as the demo's config/search.json, so the Strategy cards show lists (the demo folder has no search settings of its own).
 if (option('search')) {
