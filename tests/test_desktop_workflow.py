@@ -179,3 +179,16 @@ class DesktopWorkflowTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PrSuitesDispatchInputs(unittest.TestCase):
+    """Every input pr-suites.yml passes with `gh workflow run e2e.yml -f name=` is declared under e2e.yml's workflow_dispatch (a workflow_call-only input is refused with HTTP 422, #1754)."""
+
+    def test_dispatch_declares_what_pr_suites_passes(self):
+        root = pathlib.Path(__file__).resolve().parent.parent / '.github' / 'workflows'
+        passed = set(re.findall(r'gh workflow run e2e\.yml[^\n]*?-f (\w+)=', (root / 'pr-suites.yml').read_text()))
+        self.assertTrue(passed, 'pr-suites.yml no longer dispatches e2e.yml?')
+        e2e = (root / 'e2e.yml').read_text()
+        dispatch = e2e.split('workflow_dispatch:')[1].split('\n  schedule:')[0]
+        declared = set(re.findall(r'^      (\w+):\s*$', dispatch, re.M))
+        self.assertEqual(passed - declared, set())
