@@ -16,6 +16,8 @@ BIG = ('de', 'gb', 'fr', 'it', 'es', 'pl', 'nl')
 SMALL = ('lu', 'md', 'bg', 'hr', 'ee')
 MID_FLOOR, SMALL_FLOOR = 10, 5
 AIMED = tuple(kind for kind in role_kinds.KINDS if kind not in ('software', 'other'))   # every kind but the strong one and the leftover
+LOCAL_FLOOR = 60   # employers with local jobs a European country needs before the general company lists stop aiming at it
+COUNTRIES_RECENT = 4   # countries aimed at lately wait their turn, so one slow-to-fill country does not take every run
 RECENT = 40     # cells aimed at lately wait their turn, so one empty cell does not take every run
 
 
@@ -35,6 +37,19 @@ def count(feeds):
     return dict(Counter(f'{top_kind(feed)}|{country}' for feed in feeds for country in feed.get('countries') or [] if country in EUROPE))
 
 
+def totals(feeds):
+    """{country id: employers with a role placed in that country} over the European countries. Local jobs only: a feed counts for a country its
+    places name (src/pool_tags.countries), never for being open to worldwide remote work (24 Oct 2026: "in places" said 750 for Moldova, 5 were real)."""
+    return dict(Counter(country for feed in feeds for country in set(feed.get('countries') or []) if country in EUROPE))
+
+
+def coverage_line(counted):
+    """One log line per publish: employers with local jobs per European country, the thinnest first, those under their floor marked."""
+    rows = sorted((counted.get(country, 0), country) for country in EUROPE)
+    return 'Employers with local jobs by country (thinnest first): ' + ', '.join(
+        f'{country} {n}{"*" if n < LOCAL_FLOOR else ""}' for n, country in rows) + f'  (* under {LOCAL_FLOOR})'
+
+
 def _meta(db, key, default):
     db.execute('CREATE TABLE IF NOT EXISTS scout_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
     row = db.execute('SELECT value FROM scout_meta WHERE key = ?', (key,)).fetchone()
@@ -52,7 +67,26 @@ def _set(db, key, value):
 def keep(db, feeds):
     """Remember the counts of this publish: the next run's ideas aim by them."""
     _set(db, 'cells', count(feeds))
+    _set(db, 'country_totals', totals(feeds))
     db.commit()
+
+
+def next_country(db):
+    """The European country (ISO code, upper case) the general company lists look at next: the thinnest one under LOCAL_FLOOR that was not aimed at
+    lately, or None (no counts yet, or none thin). The ideas aim by kind x country (next_cell); this is the country's own total."""
+    counted, recent = _meta(db, 'country_totals', None), _meta(db, 'countries_aimed', [])
+    if not isinstance(counted, dict):
+        return None
+    thin = sorted((counted.get(country, 0), EUROPE.index(country), country) for country in EUROPE
+                  if counted.get(country, 0) < LOCAL_FLOOR and country not in recent)
+    if not thin:
+        _set(db, 'countries_aimed', [])
+        db.commit()
+        return None
+    country = thin[0][2]
+    _set(db, 'countries_aimed', (recent + [country])[-COUNTRIES_RECENT:])
+    db.commit()
+    return country.upper()
 
 
 def next_cell(db):

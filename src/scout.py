@@ -458,6 +458,7 @@ def main():
                                                 boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles, deadline=deadline, carry=True)
             from . import scout_cells
             scout_cells.keep(db, feeds_out)   # the next run's ideas aim at the thinnest kind × country
+            print(scout_cells.coverage_line(scout_cells.totals(feeds_out)))
             with scout_overrun.phase('market coverage and stats'):
                 stats = central_stats(db, feeds_out, market_coverage(swiss_titles, deadline=deadline), run=run_record(summary, results))
             with scout_overrun.phase('reading the job boards'):
