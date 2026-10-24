@@ -35,7 +35,7 @@ word-like (simple fonts, justified, 2 pages), latex-like (no space glyphs). Each
 same page count and size, fonts and sizes 100% of the original's, pixel drift ≤ 3% (≤ 9% LaTeX-like), old text gone, new text present.
 
 ## Progress
-- [x] Spec + fixtures (fictional look-alikes, cv.json, tailorings) (proof: desktop/test/fixtures/cv-shapes/)
+- [x] Spec + fixtures (fictional look-alikes, cv.json, tailorings) (proof: desktop/test/fixtures/cv-shapes/shapes.json)
 - [x] Tests on the six shapes (proof: desktop/test/cv-inplace.test.js)
 - [x] Read + lexer + layout + write (pdf-lib), reword in place (proof: desktop/test/pdf-edit.test.js)
 - [x] Map cv.json → page lines; bullet blocks re-stacked with markers (proof: desktop/test/cv-inplace.test.js)
