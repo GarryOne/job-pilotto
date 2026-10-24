@@ -173,6 +173,15 @@ def jsonld_jobs(markup, url):
 
 NUMBERED = 5   # links sharing one path shape that differ only in a long number: a list of single pages
 
+def _card_shape(path):
+    """The path with its number replaced by #; a short number after a title slug (/jobs/<title-slug>/4349/, owner 24 Oct 2026: a board's cards, ids of
+    4-6 digits) is one shape whatever the slug, a year is not a number."""
+    segments = path.rstrip('/').split('/')
+    if len(segments) >= 3 and re.fullmatch(r'\d{4,}', segments[-1]) and not 1900 <= int(segments[-1]) <= 2100 and re.search(r'[^\W\d_]', segments[-2]):
+        return '/'.join(segments[:-2]) + '/*/#'
+    return re.sub(r'\d{5,}', '#', path)
+
+
 def numbered_links(found, host, own):
     """The links of a page that are one path shape with a different long number each (/word123456.html): a listing's cards, whatever the
     site calls them. 18 Oct 2026: a job site listed 17 truck-driver jobs as /<word><id>.html; no word of ours matched, so the board read 0.
@@ -180,7 +189,7 @@ def numbered_links(found, host, own):
     groups = {}
     for url, _ in found:
         parts = urllib.parse.urlsplit(url)
-        shape = re.sub(r'\d{5,}', '#', parts.path)
+        shape = _card_shape(parts.path)
         if (parts.hostname or '').removeprefix('www.') != host or shape == parts.path or parts.path.rstrip('/') == own:
             continue
         groups.setdefault(shape, []).append(url.split('#')[0])
@@ -202,7 +211,7 @@ def job_links(markup, base):
     # ("/karriere/trainee"). 6 Oct 2026: Migros's menu links filled the quota before its 31 job links on the page.
     with_id = [url for url in out if JOB_ID.search(urllib.parse.urlsplit(url).path.rstrip('/'))]
     chosen = with_id if len(with_id) >= 3 else out
-    if len(chosen) < 3:   # no job word matched: a list of cards that differ only in their number
+    if len(with_id) < 3:   # no job addresses with an id: a list of cards that differ only in their number beats a menu of job words
         chosen = numbered_links(links(markup, base), host, own) or chosen
     return chosen[:MAX_JOB_PAGES]
 
