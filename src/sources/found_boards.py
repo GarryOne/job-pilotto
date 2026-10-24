@@ -56,6 +56,7 @@ def read_board(board, search, fetch=careers.get_text, route=None, early=False, s
 
 def _read(board, search, fetch, route, early, show=None):
     jobs, state, asked_routes, asks, asked_term = [], 'empty', False, 0, None
+    listing = show if board.get('rendered') and show is not None else None   # the list pages after their scripts ran; job pages are fetched as usual
     try:
         if route:
             jobs = board_routes.follow(route, fetch, board, _terms(search))
@@ -70,7 +71,7 @@ def _read(board, search, fetch, route, early, show=None):
         for place in (_places(search) if '{place}' in board['search_url'] else ['']):
             url = board['search_url'].replace('{role}', urllib.parse.quote_plus(term)).replace('{place}', urllib.parse.quote_plus(place))
             try:
-                page = fetch(url)
+                page = (listing or fetch)(url)
             except urllib.error.HTTPError as error:
                 careers.note_refusal(url, error)
                 if error.code in host_pace.REFUSED:
@@ -242,7 +243,31 @@ def _another_way(board, entry, proposed, search, fetch, judge, before, show=None
         entry['route'], entry['route_kind'] = route, route['kind']   # read_board follows it first from then on
         print(f"Job boards found: {board['name']} read from its own job list ({route['kind']})", flush=True)
         return listed, 'ok', relevant
-    return before
+    return _rendered(board, entry, proposed, page, search, fetch, show, judge) or before
+
+
+def _rendered(board, entry, proposed, page, search, fetch, show, judge):
+    """(jobs, 'ok', relevant) from the board's search page, else its home page, read after its scripts ran (headless browser), for a board whose
+    list is built by scripts although the page has text (owner, 24 Oct 2026: a Moldovan board's list page held 7 menu links, 36 jobs after the scripts);
+    kept as the board's way (entry['rendered']). None with no browser, a refusal or no relevant job. The job pages themselves are read as usual."""
+    if show is None:
+        return None
+    terms, places = _terms(search, 1), _places(search)
+    filled = proposed.replace('{role}', urllib.parse.quote_plus(terms[0] if terms else '')).replace('{place}', urllib.parse.quote_plus(places[0]))
+    for url in dict.fromkeys([filled, page[0]]):
+        try:
+            markup = show(url)
+            found = careers.jsonld_jobs(markup, url) or careers.read_page_from(markup, url, fetch)
+        except Exception as error:  # noqa: BLE001 — refused (401/403, a bot check), not allowed or no browser: the other answers stand
+            careers.note_refusal(url, error)
+            continue
+        shaped = _shaped(board, found) if found else []
+        relevant = judge(shaped) if shaped else []
+        if relevant:
+            entry['rendered'] = True
+            print(f"Job boards found: {board['name']} read after its scripts ran", flush=True)
+            return shaped, 'ok', relevant
+    return None
 
 
 def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None, early=False, workers=BOARD_WORKERS, spare=(), web=True):
@@ -271,6 +296,8 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
         proposed = board['search_url']
         if entry.get('form_url') and entry.get('form_for') == proposed:   # the board's own search form gave relevant jobs for this link
             board = {**board, 'search_url': entry['form_url']}
+        if entry.get('rendered'):   # its lists are built by scripts: read in the headless browser from now on (_rendered)
+            board = {**board, 'rendered': True}
         handed = _early.pop(board['host'], None)
         return (board, entry, handed[1] if handed and time.monotonic() - handed[0] < EARLY_MINUTES * 60 and not early else {}, {}, proposed)
     reads = [item(board) for board in todo]
