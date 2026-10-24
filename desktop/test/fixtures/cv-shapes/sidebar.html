@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face { font-family: Carlito; font-weight: 400; src: url(CARLITO/Carlito-Regular.ttf); }
+@font-face { font-family: Carlito; font-weight: 700; src: url(CARLITO/Carlito-Bold.ttf); }
+@font-face { font-family: Carlito; font-weight: 400; font-style: italic; src: url(CARLITO/Carlito-Italic.ttf); }
+
+@page { size: A4; margin: 0; } * { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Carlito, sans-serif; color: #1d2430; font-size: 9.5pt; line-height: 1.35; }
+.page { display: flex; min-height: 297mm; }
+aside { width: 62mm; background: #e9efee; padding: 14mm 7mm; color: #2f3639; }
+aside h3 { color: #1f5d63; font-size: 10pt; margin: 10pt 0 4pt; text-transform: uppercase; letter-spacing: .5pt; }
+main { flex: 1; padding: 14mm 11mm; }
+h1 { font-size: 26pt; color: #1f5d63; font-weight: 700; letter-spacing: -.5pt; }
+.role-title { font-size: 11pt; color: #4d5659; margin-bottom: 10pt; }
+h2 { font-size: 11pt; color: #1f5d63; border-bottom: 1pt solid #1f5d63; padding-bottom: 2pt; margin: 12pt 0 6pt; text-transform: uppercase; }
+.job { margin-bottom: 9pt; } .job .t { font-weight: 700; font-size: 10pt; } .job .m { color: #6b7280; font-size: 8.5pt; margin-bottom: 3pt; }
+ul { padding-left: 11pt; } li { margin-bottom: 2pt; }
+</style></head><body><div class="page">
+<aside><h3>Contact</h3><p>Mara Lindqvist<br>Gothenburg, Sweden<br>mara.lindqvist@example.org<br>+46 70 000 00 00</p>
+<h3>Skills</h3><p>Kubernetes, Terraform, Python, Go, PostgreSQL, Prometheus, Grafana, AWS, incident response</p>
+<h3>Languages</h3><p>Swedish (native), English (fluent), German (good)</p>
+<h3>Education</h3><p><b>MSc Computer Science</b><br>Chalmers University, 2012 – 2014</p></aside>
+<main><h1>Mara Lindqvist</h1><div class="role-title">Senior Platform Engineer</div>
+<h2>Profile</h2><p>Platform engineer with ten years of experience building reliable cloud infrastructure for logistics and retail companies. I enjoy turning messy deployment processes into calm, well-documented paved roads that product teams actually like to use.</p>
+<h2>Experience</h2>
+<div class="job"><div class="t">Senior Platform Engineer · Nordfrakt AB</div><div class="m">Mar 2020 – Present · Gothenburg</div><ul>
+<li>Moved 140 services from hand-built virtual machines to Kubernetes on AWS, cutting release time from two days to forty minutes.</li>
+<li>Built the on-call handbook and the incident review routine used by eight teams.</li>
+<li>Wrote Terraform modules for networks, databases and queues that every new service starts from.</li>
+<li>Mentored four engineers who now run the platform's weekly office hours.</li></ul></div>
+<div class="job"><div class="t">Systems Engineer · Kvarn Retail</div><div class="m">Aug 2016 – Feb 2020 · Malmö</div><ul>
+<li>Ran the PostgreSQL fleet behind the web shop, 30 clusters, with point-in-time recovery tested every month.</li>
+<li>Introduced Prometheus and Grafana dashboards for checkout latency and stock updates.</li>
+<li>Automated server patching with Ansible, from a full weekend of work to an unattended night run.</li></ul></div>
+<div class="job"><div class="t">Junior Developer · Solvik Data</div><div class="m">Sep 2014 – Jul 2016 · Gothenburg</div><ul>
+<li>Built internal tools in Python and Go for billing reports.</li>
+<li>Kept the build servers running and documented how to rebuild them from scratch.</li></ul></div>
+</main></div></body></html>
