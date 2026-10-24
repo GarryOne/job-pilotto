@@ -52,6 +52,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SUITES: ${{ steps.plan.outputs.suites }}
+          LEFT: ${{ steps.plan.outputs.left }}
+          HEAD_REF: ${{ github.head_ref }}   # a branch name is untrusted text: never inline in the script
         run: |
-          gh workflow run e2e.yml --ref "${{ github.head_ref }}" -f suite="$SUITES"
-          echo "Started e2e.yml on \`${{ github.head_ref }}\`: $SUITES. Left to the gate: ${{ steps.plan.outputs.left || 'none' }}. See https://github.com/${{ github.repository }}/actions/workflows/e2e.yml" | tee -a "$GITHUB_STEP_SUMMARY"
+          gh workflow run e2e.yml --ref "$HEAD_REF" -f suite="$SUITES"
+          echo "Started e2e.yml on \`$HEAD_REF\`: $SUITES. Left to the gate: ${LEFT:-none}. See https://github.com/$GITHUB_REPOSITORY/actions/workflows/e2e.yml" | tee -a "$GITHUB_STEP_SUMMARY"
