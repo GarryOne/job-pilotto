@@ -43,6 +43,12 @@ class LabCiTest(unittest.TestCase):
         self.assertIn('env=clean', RUNNER)
         self.assertNotIn('LAB_TOKEN', RUNNER.split('SAFE_ENV')[1].split('\n')[0])
 
+    def test_the_runner_has_what_the_lab_tests_need(self):
+        """The first run (24 Oct 2026) ran 19 of 25: no `cryptography` (test_license failed to import) and no engine next to the lab (8 skipped)."""
+        self.assertIn('cryptography==', WORKFLOW)
+        self.assertIn('JOB_PILOTTO_PUBLIC: ${{ github.workspace }}', WORKFLOW)
+        self.assertIn("'JOB_PILOTTO_PUBLIC'", RUNNER)
+
     def test_summary_and_status_text(self):
         ran, names = lab_ci.parse_summary(OUTPUT)
         self.assertEqual((ran, names), (25, ['test_x']))
