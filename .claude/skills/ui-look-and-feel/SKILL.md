@@ -14,7 +14,7 @@ look at it.
 owner rejected). No new look outside it; a missing part goes into the shared components first. The owner checks the result on the before/after shots.
 
 Before a PR, make ONE side-by-side image: reference (the owner's mockup, or today's screen as before) | your render, demo data, same scale, labelled
-(`cd desktop && npm run side-by-side -- <reference.png> <render.png> --out <file.png>`). Light and dark are two images. `open` it for the owner and ask
+(`cd desktop && npm run side-by-side -- <reference.png> <render.png> --out <file.png>`). Light and dark are two images. The file name starts with the session's short name (`npm run side-by-side` adds it: `a2-<name>.png`), so the owner sees whose preview is open. `open` it for the owner and ask
 (AskUserQuestion) ship / change what, with your recommendation; ship only after his yes. The PR's before/after stays the record (owner, 18 Oct 2026:
 "Every session that works on UI, should open a preview image with side by side").
 

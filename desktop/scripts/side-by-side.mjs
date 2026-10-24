@@ -6,23 +6,29 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import {previewPath, sessionShortName} from './preview-name.mjs';
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const at = args.indexOf(`--${name}`); return at >= 0 ? args[at + 1] : fallback; };
 const files = args.filter((arg, i) => !arg.startsWith('--') && !args[i - 1]?.startsWith('--'));
 const [left, right] = files;
-const out = option('out', '');
-if (!left || !right || !out) {
+const given = option('out', '');
+if (!left || !right || !given) {
   console.error('usage: npm run side-by-side -- <reference.png> <render.png> --out <file.png> [--left <label>] [--right <label>] [--width <px>]');
   process.exit(2);
 }
 for (const file of [left, right]) if (!fs.existsSync(file)) { console.error(`side-by-side: no such image: ${file}`); process.exit(2); }
 
+// The file name starts with the session's short name (the owner sees whose preview is open); decided once, here, and the Electron run gets the final path.
+const named = process.versions.electron ? {path: given, named: true} : previewPath(given, sessionShortName());
+const out = named.path;
+if (!named.named) console.error('side-by-side: session name unknown; wrote the file under the name given');
+
 if (!process.versions.electron) {
   // From npm: start Electron on this same file; it draws and exits.
   const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const electron = path.join(desktop, 'node_modules', '.bin', process.platform === 'win32' ? 'electron.cmd' : 'electron');
-  const run = spawnSync(electron, [fileURLToPath(import.meta.url), ...args], {stdio: 'inherit', env: {...process.env, ELECTRON_RUN_AS_NODE: ''}});
+  const run = spawnSync(electron, [fileURLToPath(import.meta.url), ...args.map(arg => arg === given ? out : arg)], {stdio: 'inherit', env: {...process.env, ELECTRON_RUN_AS_NODE: ''}});
   process.exit(run.status ?? 1);
 }
 
@@ -53,7 +59,7 @@ app.whenReady().then(async () => {
   const picture = await win.webContents.capturePage({x: 0, y: 0, width: total.width, height: total.height});
   fs.mkdirSync(path.dirname(path.resolve(out)), {recursive: true});
   fs.writeFileSync(out, picture.toPNG());
-  console.log(`side-by-side: ${out} (${total.width}×${total.height}); open it for the owner and ask ship / change`);
+  console.log(`side-by-side: ${path.resolve(out)} (${total.width}×${total.height}); open it for the owner and ask ship / change`);
   app.exit(0);
   } catch (error) { console.error(`side-by-side: ${error.message}`); app.exit(1); }
 });
