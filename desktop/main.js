@@ -164,7 +164,7 @@ const dispatchNote = line => appLog('dispatch', line);
 const dispatchCloud = (why, inputs, workflow) =>
   github.cloudDispatch(storage, log, {note: dispatchNote})(inputs, workflow, why);
 
-const {keepLook, printPdf, openTailoredCv, readCvPdf, pageImages} = createCvWindows({BrowserWindow, HIDDEN, clipboard, shell, getStorage: () => storage});   // lib/cv-windows.js
+const {keepLook, printPdf, renderDocx, openTailoredCv, readCvPdf, pageImages} = createCvWindows({BrowserWindow, HIDDEN, clipboard, shell, getStorage: () => storage});   // lib/cv-windows.js
 const {notify, activity, announceRuns} = createAppNotify({DEMO, Notification, app, getStorage: () => storage, targets, toWindow, getWindow: () => window});   // lib/app-notify.js
 
 function handlers() {
@@ -261,7 +261,7 @@ function handlers() {
   registerStoreHandlers({ipcMain, storage, DEMO, log: appLog, toWindow});   // lib/store-handlers.js: Settings → Your data
   registerContactHandlers({ipcMain, storage, DEMO, connected: () => notionGate.tracking(storage), needsNotion, log: appLog,   // lib/contact-handlers.js
     contactSaved: saved => server.contactSaved(storage, saved)});
-  registerSetupHandlers({DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window, keepLook, toWindow,
+  registerSetupHandlers({DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window, keepLook, renderDocx, toWindow,
     setNotionFrom: value => { notionFrom = value; }});   // lib/setup-handlers.js
   registerStrategyDraftHandlers({DEMO, here, ipcMain, storage, syncCv, toWindow, trackSetup});   // lib/strategy-draft-handlers.js
   registerDraftEditHandlers({ipcMain});   // lib/draft-edit-handlers.js: the draft edited through the Strategy cards

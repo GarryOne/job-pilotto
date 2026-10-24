@@ -1,0 +1,36 @@
+name: Proof · LibreOffice add-on on Mac and Windows
+# The add-on a Word CV's PDF comes from (desktop/lib/office.js; owner, 24 Oct 2026: downloaded on use, never in the installer, Mac and
+# Windows): the real download, its SHA-256 check, unpacking (Mac: out of the disk image; Windows: msiexec /a, no admin) and two made-up
+# Word CVs drawn to PDF. $0, no secrets, no AI. Runs on a PR that edits the add-on, or by hand.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-addon.yml'
+      - 'desktop/lib/office.js'
+      - 'desktop/scripts/office-proof.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:   # newest wins: a newer push replaces the PR's older run; a by-hand run is its own group and never cancelled
+  group: office-addon-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  proof:
+    name: LibreOffice add-on (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]   # office.js needs only Node built-ins: no npm ci
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Download, check, unpack, draw two Word CVs
+        working-directory: desktop
+        run: node scripts/office-proof.mjs "${{ runner.temp }}/office-proof"
