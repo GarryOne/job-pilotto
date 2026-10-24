@@ -22,4 +22,4 @@ export const shared = {
   formsOpen: null,  // {known, ids}: which sessions' forms are still open in Chrome (the extension's report)
 };
 
-setEngineSource(() => engineNamed(shared.state?.settings?.aiEngine, shared.state?.settings));   // every {AI} text follows the engine the user chose (renderer/ai-name.js)
+setEngineSource(() => engineNamed(shared.state?.settings?.aiEngine, shared.state?.settings, !!shared.state?.secrets?.ANTHROPIC_API_KEY));   // every {AI} text follows the engine the user chose (renderer/ai-name.js)

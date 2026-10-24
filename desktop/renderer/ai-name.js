@@ -8,11 +8,17 @@ export const MODELS = {
   claude: {small: 'Claude Haiku', main: 'Claude Sonnet', big: 'Claude Opus'},
   openai: {small: 'GPT-6 Luna', main: 'GPT-6.1 Sol', big: 'GPT-6.1 Sol'},
   free: {small: 'Free AI', main: 'Free AI', big: 'Free AI'},   // one open model behind every tier
+  none: {small: 'AI', main: 'AI', big: 'AI'},   // nothing chosen yet: generic, never "Claude"
 };
 export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : 'claude');   // 'free' is the Claude family's API engine: Claude-only features stay as they were
-const modelsOf = engine => (engine === 'free' ? 'free' : familyOf(engine));
+const modelsOf = engine => (engine === 'free' || engine === 'none' ? engine : familyOf(engine));
 // Free AI is the Anthropic API engine pointed at our relay (settings.aiFree, or the older aiTrial flag): it is named "Free AI", never "Claude".
-export const engineNamed = (engine, settings) => ((engine || 'api') === 'api' && (settings?.aiFree || settings?.aiTrial) ? 'free' : engine || 'api');
+// Nothing chosen and no Anthropic key: 'none', named "AI".
+export const engineNamed = (engine, settings, hasKey = true) => {
+  const free = !!(settings?.aiFree || settings?.aiTrial);
+  if (!engine) return free ? 'free' : hasKey ? 'api' : 'none';
+  return engine === 'api' && free ? 'free' : engine;
+};
 
 // The chosen engine, read from the window's state through a source pages/shared.js registers (this file stays free of the window, so
 // tests import it). Nothing chosen: Claude, the default an install had before the choice existed.

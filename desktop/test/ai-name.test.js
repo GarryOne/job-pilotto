@@ -46,6 +46,10 @@ test('every chooser engine, Free AI included, has a name and model names; an unk
   assert.equal(appNames.aiText(store({aiFree: true}), '{AI} answered'), 'Free AI answered');
   assert.equal(appNames.aiText(store({aiTrial: true}), '{AI} answered'), 'Free AI answered');
   assert.equal(appNames.aiText(store({aiFree: true, aiEngine: 'cli'}), '{AI}'), 'Claude', 'a later pick of another engine wins over a stale Free flag');
+  assert.equal(appNames.aiText(store({}), '{AI} is filling the application'), 'AI is filling the application', 'nothing chosen, no key: generic');
+  assert.equal(windowNames.ai('{AI} is filling ({AI:big})', 'none'), 'AI is filling (AI)');
+  assert.equal(windowNames.engineNamed(undefined, {}, false), 'none');
+  assert.equal(windowNames.engineNamed(undefined, {}, true), 'api');
   assert.equal(windowNames.engineNamed('api', {aiFree: true}), 'free');
   assert.equal(windowNames.engineNamed(undefined, {aiTrial: true}), 'free');
   assert.equal(windowNames.engineNamed('codex', {aiFree: true}), 'codex');
