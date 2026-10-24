@@ -16,9 +16,12 @@ import {registerReadyHandlers} from './ready-handlers.js';
 import * as strategy from './strategy.js';
 import fs from 'node:fs';
 import {log as appLog} from './log.js';
+import {currentDocx} from './cv-docx.js';
+import {makeDocx} from './cv-docx-tailor.js';
+import {findOffice} from './office.js';
 
 export function registerKitHandlers(ctx) {
-  const {DEMO, allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, pageImages, powerMonitor, printPdf, readCvPdf, shell, storage, track} = ctx;
+  const {DEMO, allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, pageImages, powerMonitor, printPdf, readCvPdf, renderDocx, shell, storage, track} = ctx;
   registerReadyHandlers({ipcMain, notify, shell, storage, app, powerMonitor, prepare: {kit: (code, name) => prepareKitFor(code, name, {quiet: true}), cv: (code, name) => tailorCv(code, name, {show: false, quiet: true})}});   // Ready to send (the owner's install only): the card beside Tailor on Actions, its calls in lib/ready-handlers.js
   const {makeFor: makeJobLetter} = registerJobLetterHandlers({DEMO, ipcMain, printPdf, shell, storage});   // the job's own cover letter, made after its CV
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
@@ -71,7 +74,11 @@ export function registerKitHandlers(ctx) {
         result = answer.result;
         applied = cvlib.applyTailoring(base, result, `${profile} ${experience.knownText(storage, main)}`);
         if (own.doc) {
-          edited = await inPlace.make(own, base, applied, {cacheDir: storage.path('fonts')});
+          // A Word CV: its own .docx edited and drawn again (lib/cv-docx-tailor.js); else, or when that fails, its PDF edited in place.
+          const docx = renderDocx && currentDocx(storage);
+          edited = docx ? await makeDocx(storage, docx, applied, base, {readPdf: readCvPdf, renderDocx, soffice: findOffice(storage.path('office'))}) : null;
+          if (edited?.why) appLog('cv', 'Word CV not edited, its PDF is', {code, why: edited.why});
+          if (!edited || edited.why) edited = await inPlace.make(own, base, applied, {cacheDir: storage.path('fonts')});
           if (!edited.why) { applied = {...applied, warnings: edited.warnings, review: edited.review}; printed = {pdf: edited.pdf, overflow: []}; break; }
           appLog('cv', 'tailored CV from the template', {code, why: edited.why});
           edited = null;

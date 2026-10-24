@@ -18,8 +18,8 @@ export function createCvWindows(ctx) {
     try { return await cvLook.apply(cvlib.dir(getStorage()), cv, cvLook.plan(await probe.scan(), cv), probe); } finally { probe.close(); }
   }
   // The CV PDF as lib/pdf-edit/read.js sees it, for the in-place tailored CV (lib/cv-inplace-run.js).
-  async function readCvPdf() {
-    const probe = await cvLook.probeWindow(BrowserWindow, getStorage().path('cv.pdf'));
+  async function readCvPdf(file = getStorage().path('cv.pdf')) {   // a tailored Word CV's drawn PDF is read the same way (lib/cv-docx-tailor.js)
+    const probe = await cvLook.probeWindow(BrowserWindow, file);
     try { return await probe.read(); } finally { probe.close(); }
   }
   // Each page of a PDF as a PNG (base64), for the review of an in-place tailored CV.
