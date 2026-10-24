@@ -9,6 +9,7 @@ import {installOffice, officePdf} from '../lib/office.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const work = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-office-proof-'));
+fs.mkdirSync(work, {recursive: true});   // a folder named on the command line (CI's runner.temp/office-proof) may not exist yet
 const t0 = Date.now(), secs = () => `${Math.round((Date.now() - t0) / 1000)} s`;
 let last = '', lastTenth = -1;
 const soffice = await installOffice(path.join(work, 'office'), {work, onProgress: ({step, share, bytes}) => {
