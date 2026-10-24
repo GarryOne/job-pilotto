@@ -11,7 +11,7 @@ export const MODELS = {
 };
 export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : 'claude');   // 'free' is the Claude family's API engine: Claude-only features stay as they were
 const modelsOf = engine => (engine === 'free' ? 'free' : familyOf(engine));
-// Free AI is the Anthropic API engine pointed at our relay (settings.aiFree, or the older aiTrial credit): it is named "Free AI", never "Claude".
+// Free AI is the Anthropic API engine pointed at our relay (settings.aiFree, or the older aiTrial flag): it is named "Free AI", never "Claude".
 export const engineNamed = (engine, settings) => ((engine || 'api') === 'api' && (settings?.aiFree || settings?.aiTrial) ? 'free' : engine || 'api');
 
 // The chosen engine, read from the window's state through a source pages/shared.js registers (this file stays free of the window, so
