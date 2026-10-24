@@ -1,4 +1,4 @@
-import {setEngineSource} from '../ai-name.js';
+import {setEngineSource, engineNamed} from '../ai-name.js';
 
 // State more than one page changes (an imported binding is read-only, so it lives on one object).
 export const shared = {
@@ -22,4 +22,4 @@ export const shared = {
   formsOpen: null,  // {known, ids}: which sessions' forms are still open in Chrome (the extension's report)
 };
 
-setEngineSource(() => shared.state?.settings?.aiEngine);   // every {AI} text follows the engine the user chose (renderer/ai-name.js)
+setEngineSource(() => engineNamed(shared.state?.settings?.aiEngine, shared.state?.settings));   // every {AI} text follows the engine the user chose (renderer/ai-name.js)

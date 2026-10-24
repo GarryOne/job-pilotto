@@ -23,7 +23,7 @@ for (const [name, reply] of Object.entries(REPLIES)) {
       assert.ok(await app.fillWithPanel(), 'the panel offers a Fill button');
       await app.page.waitForFunction(() => /couldn't answer|Answer them yourself/.test(document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.note')?.textContent || ''), null, {timeout: 60000});
       const {note} = await app.panel();
-      assert.match(note, /Claude couldn't answer the questions this form asks \(its answer couldn't be read\)\. Answer them yourself, or press Fill again/, note);
+      assert.match(note, /The AI couldn't answer the questions this form asks \(its answer couldn't be read\)\. Answer them yourself, or press Fill again/, note);
       assert.doesNotMatch(note, RAW, `a raw code error reached the panel: ${note}`);
       await app.assertIsolated();
     } finally { await app.close(); }

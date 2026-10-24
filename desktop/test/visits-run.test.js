@@ -192,8 +192,8 @@ test('each step a read tab takes shows live in its row, in the words of the page
   const openTab = url => {
     const ticket = /-([a-z0-9]+)$/.exec(url)[1];
     (async () => {
-      await tellStep(5, {}, ticket, 'Claude is choosing the filters for your search…', runIn, send);
-      for (let i = 0; i < 6; i++) { t.mock.timers.tick(25); stepOf({ticket, words: 'Claude is choosing the filters for your search…'}); }   // 150 ms: 3x the quiet time
+      await tellStep(5, {}, ticket, 'AI is choosing the filters for your search…', runIn, send);
+      for (let i = 0; i < 6; i++) { t.mock.timers.tick(25); stepOf({ticket, words: 'AI is choosing the filters for your search…'}); }   // 150 ms: 3x the quiet time
       await tellStep(5, {}, ticket, 'reading page 1…', runIn, send);
       done({url: url.split('#')[0], ticket, jobs: 6, added: 6, pages: 1});
     })();
@@ -202,9 +202,9 @@ test('each step a read tab takes shows live in its row, in the words of the page
   const results = await runAll([{name: 'Hublot', url: 'https://www.hublot.com'}], {openTab, tee: line => lines.push(line), quietMs: 50, siteMs: 5000, waitMs: 5000});
   const seen = () => `result ${JSON.stringify(results[0])}; lines ${JSON.stringify(lines)}; banners ${JSON.stringify(banners)}`;
   assert.equal(results[0].ok, true, `not skipped as silent while Claude chose the filters: ${seen()}`);
-  assert.deepEqual(banners, ['Jobadabra: Claude is choosing the filters for your search…', 'Jobadabra: reading page 1…'], seen());
+  assert.deepEqual(banners, ['Jobadabra: AI is choosing the filters for your search…', 'Jobadabra: reading page 1…'], seen());
   assert.ok(sent.every(([route, body]) => route === '/extension/visit-state' && body.ticket && body.words));
-  assert.ok(lines.includes(siteLine('reading', 'Hublot', 'Claude is choosing the filters for your search…')), seen());
+  assert.ok(lines.includes(siteLine('reading', 'Hublot', 'AI is choosing the filters for your search…')), seen());
   await tellStep(5, {}, '', 'a tab the person opened', runIn, send);
   assert.equal(sent.length, 2, 'a tab the app did not open tells only its banner');
 });
@@ -229,7 +229,7 @@ test('a tab whose Claude is still answering is not skipped as silent, its time i
   const openTab = url => {
     const ticket = /-([a-z0-9]+)$/.exec(url)[1];
     if (url.includes('thinker')) {   // Claude answers for 150 ms: longer than the quiet time and the site's budget here
-      stepOf({ticket, words: 'Claude is learning how to read this site (once)…'});
+      stepOf({ticket, words: 'AI is learning how to read this site (once)…'});
       whileThinking(ticket, new Promise(resolve => setTimeout(resolve, 150))).then(() => done({url: url.split('#')[0], ticket, jobs: 2, added: 2, pages: 1}));
     } else stepOf({ticket, words: 'reading page 1…'});   // then nothing: skipped, with its last step named
     return {ok: true};

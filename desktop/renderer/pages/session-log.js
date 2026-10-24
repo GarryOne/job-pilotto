@@ -1,4 +1,5 @@
 // Session page: opening a session and its log.
+import {ai} from '../ai-name.js';
 import {el, moreButton, pill} from '../components.js';
 import {resumeOffered} from '../claude-help.js';
 import {latestStep, readSessionMessage} from '../session-message.js';
@@ -80,7 +81,7 @@ export function renderSessionPage() {
   // Start again and Cancel beside ⋯: the two ways out of a session that isn't going well.
   const again = Object.assign(el('button', 'secondary', '↺ Start again'), {title: 'Close this session and start a new one on the same job'});
   again.addEventListener('click', () => busy(again, 'Restarting…', () => restartSession(item)));
-  const cancel = Object.assign(el('button', 'secondary', 'Cancel application'), {title: 'Claude stops, the form tab closes, the job goes back to Kit ready'});
+  const cancel = Object.assign(el('button', 'secondary', 'Cancel application'), {title: ai('{AI} stops, the form tab closes, the job goes back to Kit ready')});
   cancel.addEventListener('click', () => busy(cancel, 'Cancelling…', () => cancelSession(item)));
   if (item.kind === 'form') cancel.title = 'The form tab closes and the job goes back to Kit ready';
   $('ss-more').replaceChildren(...(isSubmitted(item) ? [] : item.kind === 'form' ? [cancel] : [again, cancel]), moreButton(sessionMenu(item), 'More'));
@@ -129,7 +130,7 @@ export function renderSessionPage() {
   $('ss-offline').querySelector('span').textContent = isSubmitted(item)
     ? `Submitted. This application is marked Applied in ${storeName()}.`
     : item.resumable
-    ? (resumeOffered() ? 'Claude isn\'t running. This is its conversation; resume it to answer or ask for more.' : 'The session isn\'t running. This is its conversation, kept for reference.')
+    ? (resumeOffered() ? ai('{AI} isn\'t running. This is its conversation; resume it to answer or ask for more.') : 'The session isn\'t running. This is its conversation, kept for reference.')
     : 'This session has ended. Start a new session from the job to continue.';
   openLog(logChoice[item.id] ?? item.status === 'running', false);
 }
@@ -205,7 +206,7 @@ function renderTranscript(talk) {
     }
     const row = el('div', `ss-tr-msg is-${entry.kind}`);
     const head = el('div', 'ss-tr-who');
-    head.append(el('b', '', entry.kind === 'you' ? 'You' : 'Claude'), el('span', '', entry.time || hhmm(entry.at)));
+    head.append(el('b', '', entry.kind === 'you' ? 'You' : ai('{AI}')), el('span', '', entry.time || hhmm(entry.at)));
     const body = el('div', 'ss-tr-text');
     body.append(...(entry.kind === 'claude' ? richText(entry.text) : [el('p', '', entry.text.length > 400 ? `${entry.text.slice(0, 400)}…` : entry.text)]));
     row.append(head, body);

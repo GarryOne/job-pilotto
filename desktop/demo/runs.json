@@ -76,8 +76,8 @@
   },
   "log": [
    "⏳ Reading your jobs in Notion",
-   "⏳ Claude is reading the message",
-   "⏳ Claude found: Recruiter outreach · Platform Engineer — updating the job in Notion",
+   "⏳ AI is reading the message",
+   "⏳ AI found: Recruiter outreach · Platform Engineer — updating the job in Notion",
    "Job logged: {\"page_id\": \"demo-lead-9\", \"url\": \"https://www.notion.so/demo-lead-9\", \"title\": \"Platform Engineer\", \"job_url\": \"https://example.com/lead/9\", \"created\": true}",
    "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100"
   ]

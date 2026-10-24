@@ -80,7 +80,7 @@ const allowButton = (done) => $('visit-allow').addEventListener('click', async (
     $('visit-text').textContent = `The Jobadabra app opened ${host} for you to read. Sign in in this tab if it asks, then press Read.`;
     for (const [id, filter] of [['read-filter', true], ['read-as-is', false]]) $(id).addEventListener('click', () => {
       $('read-filter').disabled = $('read-as-is').disabled = true;
-      $('visit-progress').textContent = filter ? 'Claude is choosing the filters for your search…' : 'Reading…';
+      $('visit-progress').textContent = filter ? 'AI is choosing the filters for your search…' : 'Reading…';
       chrome.runtime.sendMessage({type: 'visitRead', tabId: tab.id, filter}, state => {
         $('read-filter').disabled = $('read-as-is').disabled = false;
         if (!state?.ok) $('visit-progress').textContent = `Not read: ${state?.error || 'the app did not answer'}.`;

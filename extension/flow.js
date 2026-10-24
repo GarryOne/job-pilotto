@@ -418,11 +418,11 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   }
   // With a kit: the questions it doesn't cover, answered by Claude now that the rest is already on the page.
   if (later.length && useAI) {
-    onStep(withKit ? `Claude is answering ${later.length} more question${later.length === 1 ? '' : 's'}…`
-      : `Claude is answering ${later.length} question${later.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
+    onStep(withKit ? `AI is answering ${later.length} more question${later.length === 1 ? '' : 's'}…`
+      : `AI is answering ${later.length} question${later.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
     try {
       ai = answersOrDropped(pendingAI ? await pendingAI : await askAnswers(tab, config, later));
-      step('Claude answered (after the fill)');
+      step('AI answered (after the fill)');
       if (!withKit) {
         await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode, asked: later.map(f => f.field)}});
         // Settings → "Check eligibility before filling" off (for testing): fill regardless. Not eligible: what is filled stays (owner, 11 Oct 2026), the rest waits;
@@ -446,7 +446,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         summary.trace = [...(summary.trace || []), ...(more?.trace || []).filter(row => row.source === 'Claude (on the page)' || row.reason === PROPOSED || String(row.reason || '').startsWith(WRITTEN) || KIND_REASON.test(String(row.reason || '')))];
         applyCombos(summary.trace, combos);   // the later pass's menus too: the observed reason, not the page's old label
         notClicked(config.clickDropdowns === false ? '"Fill drop-down menus too" is off' : clickError ? `the click failed (${clickError})` : 'the pick never reached it');
-        step('filled Claude\'s answers');
+        step('filled the AI\'s answers');
       }
     } catch (error) {
       if (error.dropped) debug.errors.push(`Claude (after the fill): ${error.message}`);   // not an AI failure: nothing to tell the person

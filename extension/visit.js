@@ -124,7 +124,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       }
     }
     if (filter && !state.blocked) {
-      await tellStep(tabId, config, ticket, 'Claude is choosing the filters for your search…');
+      await tellStep(tabId, config, ticket, 'AI is choosing the filters for your search…');
       await thinking(() => setFilters(tabId, config, state).catch(() => { /* filters are a help: the page is read as it is */ }));
       await tellStep(tabId, config, ticket, state.filters.length ? `filters set: ${state.filters.join(', ').slice(0, 100)}` : `no filters set${state.note ? ` (${state.note})` : ''}: reading the page as it is`);
     }
@@ -138,7 +138,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
     let framed = false;   // a job list inside a frame was looked for (once a visit)
     const learn = async () => {
       asked = true;
-      await tellStep(tabId, config, ticket, 'Claude is learning how to read this site (once)…');
+      await tellStep(tabId, config, ticket, 'AI is learning how to read this site (once)…');
       const outline = await run(tabId, pageOutline);
       const answer = await thinking(() => api(config, '/extension/visit-understand', {method: 'POST', body: JSON.stringify({...outline, ticket})}).catch(() => null));
       if (answer?.recipe) { recipe = answer.recipe; state.learned = true; }
@@ -174,7 +174,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
           await waitForPage(tabId).catch(() => {});
           await consent();
           if (filter) {   // the filters set before were the outer page's: this list has its own (Manor's, in live.solique.ch)
-            await tellStep(tabId, config, ticket, 'Claude is choosing the filters for your search…');
+            await tellStep(tabId, config, ticket, 'AI is choosing the filters for your search…');
             await thinking(() => setFilters(tabId, config, state).catch(() => {}));
           }
           recipe = null; asked = false;
@@ -184,7 +184,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       }
       if (!cards?.length && page === 0 && unstuck < UNBLOCK_TRIES && !knownList) {   // no jobs here yet: Claude picks a way to them (owner: "ask Claude how to get unblocked")
         unstuck += 1;
-        await tellStep(tabId, config, ticket, 'no jobs on this page yet: Claude is looking for the way to them…');
+        await tellStep(tabId, config, ticket, 'no jobs on this page yet: AI is looking for the way to them…');
         const page0 = await run(tabId, collectWays).catch(() => null);
         const way = page0 && await thinking(() => api(config, '/extension/visit-unblock', {method: 'POST', body: JSON.stringify({...page0, ticket})}).catch(() => null));
         if (way?.needs_person) { state.stopped = `the site needs you: ${way.needs_person}`; break; }
@@ -193,7 +193,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
             if (step.action === 'open') { if (/^https:\/\//.test(step.href || '') && !TEMPLATE.test(step.href)) await moveTab(tabId, step.href); }
             else await run(tabId, applyFilters, [[step]]).catch(() => null);
           }
-          await tellStep(tabId, config, ticket, `Claude: ${String(way.why || 'trying a way to the jobs').slice(0, 120)}`);
+          await tellStep(tabId, config, ticket, `AI: ${String(way.why || 'trying a way to the jobs').slice(0, 120)}`);
           await pause();
           await waitForPage(tabId).catch(() => {});
           await consent();

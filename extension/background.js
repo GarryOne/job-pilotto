@@ -370,7 +370,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
     if (result?.aiError) {
       const why = String(result.aiError).slice(0, 160);
       decide('fill', 'Claude did not answer the questions', {error: why});
-      await note(tab.id, `✈️ Claude couldn't answer the questions this form asks (${why}). Answer them yourself, or press Fill again.`, page);
+      await note(tab.id, `✈️ The AI couldn't answer the questions this form asks (${why}). Answer them yourself, or press Fill again.`, page);
       api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'ai-failed', url, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(), why})}).catch(() => {});
     }
     await closeFillDialogs(tab, {close: closePopupOrLayer, look: layerOnTop, decide});   // dialog-after-fill.js
