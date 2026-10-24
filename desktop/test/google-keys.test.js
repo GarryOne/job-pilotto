@@ -26,7 +26,7 @@ test("an installed app pins the user's repo to its own release (workflow and cod
   github.setEngineRef('desktop-v0.4.1');
   try {
     const daily = github.payload(storage).files['.github/workflows/daily.yml'];
-    assert.match(daily, /uses: GarryOne\/job-pilotto\/\.github\/workflows\/daily\.yml@desktop-v0\.4\.1/);
+    assert.match(daily, /uses: GarryOne\/jobadabra\/\.github\/workflows\/daily\.yml@desktop-v0\.4\.1/);
     assert.match(daily, /code_ref: desktop-v0\.4\.1/);
     assert.doesNotMatch(daily, /@main|code_ref: main/);
   } finally { github.setEngineRef('main'); }
