@@ -34,10 +34,11 @@ export async function run(ctx) {
   await new Promise(done => server.listen(0, '127.0.0.1', done));
   const base = `http://127.0.0.1:${server.address().port}`;
   // The full Chromium in its new headless mode, as the extension suites run it: CI installs that one, not the separate headless shell.
-  const browser = await chromium.launch({headless: false, args: [...(process.env.E2E_HEADED ? [] : ['--headless=new'])]});
-  const page = await browser.newPage();
+  let browser, page;
   const sent = [];
   try {
+    browser = await chromium.launch({headless: false, args: [...(process.env.E2E_HEADED ? [] : ['--headless=new'])]});
+    page = await browser.newPage();
     await ctx.run('the extension reads a list page as you see it: each card\'s title, address and visible lines', async () => {
       await page.goto(`${base}/list-1.html`);
       const seen = await call(page, 'extractPage');
@@ -273,7 +274,7 @@ print(json.dumps({'added': [r['added'] for r in results], 'jobs': [[j['title'], 
       if (result.own[0]?.[0] !== 'Photographe produit') throw new Error(`the employer page's job data: ${JSON.stringify(result.own)}`);
     });
   } finally {
-    await browser.close();
+    await browser?.close();
     server.close();
   }
 }

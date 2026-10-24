@@ -69,7 +69,8 @@ test('a restart stops the app as a whole group (a quit prompt that never answers
   const server = net.createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const {port} = server.address();
-  assert.equal(await portsFree([port], 600), false, 'a held port is not free');
-  await new Promise(resolve => server.close(resolve));
+  try {
+    assert.equal(await portsFree([port], 600), false, 'a held port is not free');
+  } finally { await new Promise(resolve => server.close(resolve)); }
   assert.equal(await portsFree([port], 2000), true, 'a released port is free');
 });

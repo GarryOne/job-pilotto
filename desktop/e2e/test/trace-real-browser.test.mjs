@@ -37,8 +37,10 @@ async function traceOn(context, page) {
 }
 
 test('on a real page that submits a form from an XHR answer and leaves, the trace keeps the answer every time', async () => {
-  const instance = await server(), browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']}), bodies = [];
+  const instance = await server(), bodies = [];
+  let browser;
   try {
+    browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
     for (let run = 0; run < 8; run += 1) {
       const context = await browser.newContext(), page = await context.newPage(), trace = await traceOn(context, page);
       await page.goto(`http://site.example.test:${instance.address().port}/`);
@@ -50,13 +52,15 @@ test('on a real page that submits a form from an XHR answer and leaves, the trac
       trace.endAll();   // the trace's watch timer must not keep the test process alive
       await context.close();
     }
-  } finally { await browser.close(); instance.close(); }
+  } finally { await browser?.close(); instance.close(); }
   assert.deepEqual(bodies, Array(8).fill('{"payload":"abc-123"}'), 'the XHR answer is in every trace');
 });
 
 test('a reply that stays open (an event stream) never makes the page wait for the trace', async () => {
-  const instance = await server(), browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
+  const instance = await server();
+  let browser;
   try {
+    browser = await chromium.launch({headless: true, args: ['--host-resolver-rules=MAP site.example.test 127.0.0.1']});
     const context = await browser.newContext(), page = await context.newPage();
     const trace = await traceOn(context, page);
     await page.goto(`http://site.example.test:${instance.address().port}/stream-page`);
@@ -64,5 +68,5 @@ test('a reply that stays open (an event stream) never makes the page wait for th
     const headersMs = Number(await page.textContent('#t'));
     trace.endAll();
     assert.ok(headersMs < 1500, `the stream's headers reached the page in ${headersMs} ms (the stream itself lasts 4000 ms)`);
-  } finally { await browser.close(); instance.close(); }
+  } finally { await browser?.close(); instance.close(); }
 });

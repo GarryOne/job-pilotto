@@ -97,8 +97,9 @@ test('a real ⋯ menu below the fold is opened by the probe, not filed as broken
     if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.statusCode = 404; return res.end(); }
     res.setHeader('content-type', types[path.extname(file)] || 'application/octet-stream'); res.end(fs.readFileSync(file));
   }).listen(0);
-  const browser = await chromium.launch({channel: 'chrome'});
+  let browser;
   try {
+    browser = await chromium.launch({channel: 'chrome'});
     const page = await browser.newPage({viewport: {width: 1024, height: 700}});
     await page.goto(`http://127.0.0.1:${server.address().port}/t.html`);
     await page.waitForSelector('.ui-more');
@@ -106,7 +107,7 @@ test('a real ⋯ menu below the fold is opened by the probe, not filed as broken
     const {findings, results} = await probePage({page, view: 't', ipc, scope: '.view[data-view="t"]', settleMs: 800, idleMs: 0});
     assert.deepEqual(findings, [], JSON.stringify(results));
     assert.ok(results.some(item => item.effects.includes('expanded toggled')), 'the menu opened');
-  } finally { await browser.close(); server.close(); }
+  } finally { await browser?.close(); server.close(); }
 });
 
 test('every control that restarts the app is never pressed by a probe', async () => {

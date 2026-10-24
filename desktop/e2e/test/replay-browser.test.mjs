@@ -45,14 +45,15 @@ test('an appPort app gets the extension\'s calls and no stub is started', {skip:
     response.end('{}');
   });
   await new Promise(resolve => app.listen(port, '127.0.0.1', resolve));
-  const browser = await startReplayBrowser([], {appPort: port});
+  let browser;
   try {
+    browser = await startReplayBrowser([], {appPort: port});
     assert.equal(browser.run.requests.length, 0, 'the helper\'s own stub recorded nothing');
     await browser.run.page.goto('about:blank');
     const deadline = Date.now() + 15000;
     while (!seen.some(url => url.startsWith('/extension/')) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 250));
     assert.ok(seen.some(url => url.startsWith('/extension/')), `the extension never called the app on port ${port} (saw: ${seen.join(', ')})`);
-  } finally { await browser.close(); app.close(); }
+  } finally { await browser?.close(); app.close(); }
 });
 
 test('each tab gets the applicant details of its own case: a phone split in pieces, the default for a case with none', () => {
