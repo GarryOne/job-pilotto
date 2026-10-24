@@ -50,6 +50,7 @@ on:
       - 'desktop/main.js'
       - 'desktop/preload.cjs'
       - 'desktop/renderer/os.js'
+      - 'desktop/renderer/pages/office-progress.js'
       - 'desktop/renderer/pages/startup.js'
       - 'desktop/scripts/python.sh'
       - 'desktop/scripts/release-notes.sh'
