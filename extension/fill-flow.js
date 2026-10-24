@@ -10,6 +10,8 @@
 //  4. After a fill the AI is asked what the page needs next; a middle step's Next is pressed under the Submit floors, Submit never (worker/test/form-ready.test.js).
 import {PAGE_FILES, apiFor, askEarly, clickCombos, forgetGivenUp, settings} from './flow.js';
 import {decide} from './log.js';
+import {retireFill} from './one-fill.js';
+import {handoffKey} from './ready-handoff.js';
 import {noteRole} from './account.js';
 import {expandSections} from './sections.js';
 import {closeConsentEverywhere} from './consent.js';
@@ -161,6 +163,13 @@ const deadEndHere = (tab, jobUrl, host, why, needs, evidence) => deadEnd({job: S
 const triedApply = new Set();
 // A refresh the person pressed is a new document: its Apply may be pressed again (Deloitte, 10 Oct 2026: after ⌘R nothing happened). Not after every press: a posting whose Apply opened the form in another tab must not press it a second time (beta e2e applycv, Windows).
 export const forgetApplyTries = tabId => { forgetNoEffect(tabId); forgetRouteTries(tabId); forgetClimb(tabId); for (const key of [...triedApply]) if (key.startsWith(`${tabId} `)) triedApply.delete(key); };
+// A page loaded again at the person's word (their refresh, "Apply on this page", the app's reload command): the tab's pages are looked at again and the fill running on the old document is retired. The one place that forgets, whichever way the reload reached the worker (never a press-induced navigation: Invariant 1).
+export const tabReloaded = tabId => {
+  retireFill(tabId);
+  forgetApplyTries(tabId);
+  chrome.storage.session.remove(handoffKey(tabId)).catch(() => {});   // the night's hand-off is asked for again by the new document (ready-handoff.js)
+  for (const key of [...started]) if (key === tabId || (typeof key === 'string' && key.startsWith(`${tabId} `))) started.delete(key);
+};
 export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // A page judged "no form" while it had no field at all may still be drawing its form (a spinner first, or a sign-in that redirects to it:
 // SuccessFactors, 9 Oct 2026, where the form came after the judgment and neither the fill nor the panel ever came back). For 20 s it is read

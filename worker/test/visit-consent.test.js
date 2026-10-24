@@ -80,10 +80,11 @@ test('the fill ends in a stuck report when nothing was filled and required field
 // 9 Oct 2026: a refresh of a form tab did nothing (one fill per tab and page, for the life of the tab) and there was no button to start it.
 test('a refresh looks at the page again, and the popup has a permanent Apply for a tab the app opened', () => {
   const read = name => fs.readFileSync(new URL(`../../extension/${name}`, import.meta.url), 'utf8');
-  assert.match(read('tab-report.js'), /onCommitted\.addListener\(details => \{\s*if \(details\.frameId !== 0 \|\| details\.transitionType !== 'reload'\) return;[\s\S]*started\.delete\(key\)/);
+  assert.match(read('tab-report.js'), /onCommitted\.addListener\(details => \{\s*if \(details\.frameId !== 0 \|\| details\.transitionType !== 'reload'\) return;\s*tabReloaded\(details\.tabId\)/);
   // The Apply press is tried again after a refresh (forgetApplyTries on reload), never after every press: a posting whose Apply opened the form in another tab
   // must not press it a second time (beta e2e applycv on Windows, 10 Oct 2026: the second tab was not linked to the job, no kit).
-  assert.match(read('tab-report.js'), /transitionType !== 'reload'\) return;\s*forgetApplyTries\(details\.tabId\)/);
+  assert.match(read('tab-report.js'), /transitionType !== 'reload'\) return;\s*tabReloaded\(details\.tabId\)/);
+  assert.match(read('fill-flow.js'), /export const tabReloaded = tabId => \{\s*retireFill\(tabId\);\s*forgetApplyTries\(tabId\);/);
   assert.doesNotMatch(read('fill-flow.js'), /noteRole\(tab\.id, tab\.url, role\); triedApply\.delete/);
   assert.match(read('popup.html'), /id="apply-here" hidden/);
   assert.match(read('popup.js'), /show\(popupControls\(mode\)\);[\s\S]*type: 'applyHere'/);   // shown through the one gate (popup-controls.js: 'apply-here' on a tab opened to apply)
@@ -96,9 +97,9 @@ test('a refresh looks at the page again, and the popup has a permanent Apply for
 test('the popup\'s Apply on this page forgets the tried Apply press, only for the person\'s own press', () => {
   const read = name => fs.readFileSync(new URL(`../../extension/${name}`, import.meta.url), 'utf8');
   const messages = read('messages-panel.js');
-  assert.match(messages, /import \{consider, forgetApplyTries\} from '\.\/fill-flow\.js'/);
-  assert.match(messages, /message\?\.type === 'applyHere'[\s\S]*forgetApplyTries\(tab\.id\);[\s\S]*consider\(tab, await jobOf\(tab\)\)/);
-  assert.equal([...read('fill-flow.js').matchAll(/forgetApplyTries\(/g)].length, 0, 'fill-flow.js only defines it: it never calls it by itself after an Apply press');
+  assert.match(messages, /import \{consider, tabReloaded\} from '\.\/fill-flow\.js'/);
+  assert.match(messages, /message\?\.type === 'applyHere'[\s\S]*tabReloaded\(tab\.id\);[\s\S]*consider\(tab, await jobOf\(tab\)\)/);
+  assert.equal([...read('fill-flow.js').matchAll(/forgetApplyTries\(/g)].length, 1, 'fill-flow.js calls it only inside tabReloaded: never by itself after an Apply press');
 });
 
 // jobs.ch, 10 Oct 2026: the banner's "Cookie notice" link was picked as the dismiss button; it opened a new tab, whose banner did the same: a loop of tabs.

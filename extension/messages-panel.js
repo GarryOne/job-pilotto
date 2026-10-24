@@ -10,7 +10,7 @@ import {forgetAI} from './flow.js';
 import {settings} from './flow.js';
 import {sharedFixNote} from './tab-pages.js';
 import {sharedFixes} from './tab-pages.js';
-import {consider, forgetApplyTries} from './fill-flow.js';
+import {consider, tabReloaded} from './fill-flow.js';
 
 export function createPanelMessages(ctx) {
   const {fillOpenedTab, jobOf, prefetch, started} = ctx;
@@ -48,14 +48,15 @@ export function createPanelMessages(ctx) {
         const tab = await chrome.tabs.get(message.tabId).catch(() => null);
         const armed = tab && (await chrome.storage.session.get(`armed:${tab.id}`).catch(() => ({})))[`armed:${tab.id}`];
         if (!tab || !/^https:/.test(tab.url || '') || !(armed || tab.url.includes('#jobpilotto-fill'))) return {ok: false, why: 'This page was not opened by the Jobadabra app: press Apply in the app.'};
-        for (const key of [...started]) if (key === tab.id || (typeof key === 'string' && key.startsWith(`${tab.id} `))) started.delete(key);
-        forgetApplyTries(tab.id);   // a page whose Apply press was tried once is pressed again: this is the person asking (a reload does the same, tab-report.js)
+        tabReloaded(tab.id);   // a page whose Apply press was tried once is pressed again: this is the person asking (a reload does the same, tab-report.js)
         decide('fill', 'Apply pressed in the extension popup', {host: new URL(tab.url).hostname});
         consider(tab, await jobOf(tab)).catch(() => {});
         return {ok: true};
       })().then(reply, () => reply({ok: false, why: 'Could not start here.'}));
       return true;
     }
+    // The app's reload command (review.js): Chrome reports that reload as a link, not a reload, so the panel says it first (the app asked on the person's word).
+    if (message?.type === 'panelReloading' && sender.tab) { tabReloaded(sender.tab.id); reply({ok: true}); return false; }
     // The app asked to see this form: its tab and window come forward (the extension knows the tab; no Mac scripting).
     if (message?.type === 'panelShowTab' && sender.tab) {
       chrome.tabs.update(sender.tab.id, {active: true})
