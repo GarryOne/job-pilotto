@@ -107,7 +107,7 @@ def waiting(url):
 
 
 def turn(url):
-    """Wait for this domain's next slot; Busy when the site asked to slow down for longer than MAX_WAIT."""
+    """Wait for this domain's next slot; Busy when the site asked to slow down, or the requests queued for it, for longer than MAX_WAIT."""
     key = domain(url)
     with _lock:
         line = _line(_load(), key)
@@ -115,6 +115,8 @@ def turn(url):
         if line['calm'] - now > MAX_WAIT:
             raise Busy(url, line['calm'])
         at = max(line.get('next', 0), line['calm'], now)
+        if at - now > MAX_WAIT:   # the queue of waiting requests counts too, not only the site's calm-until (23 Oct 2026: 6 workers x a 120 s gap = minutes asleep)
+            raise Busy(url, at)
         line['next'] = at + line['gap']
         line['recent'] = [t for t in line.get('recent', []) if t > at - BURST_WINDOW] + [at]
     if at > now:

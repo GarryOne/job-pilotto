@@ -151,6 +151,25 @@ class PaceTest(PaceCase):
             self.read('/ok')
         self.assertNotIn('/ok', Site.hits)
 
+    def test_many_workers_queued_on_one_slow_site_never_wait_more_than_max_wait_in_total(self):
+        # 23 Oct 2026: a gap of 120 s after a 429 and 6 workers on one job-system host left a check asleep for minutes (the central scout ran 75 min)
+        host_pace.answer(self.base, 429, wait=1)
+        for _ in range(3):
+            host_pace.answer(self.base, 429, wait=1)   # the gap doubles each time
+        self.clock.now += 5   # the site's own calm-until is over; only the queue of slots is left
+        gap = host_pace._load()['127.0.0.1']['gap']
+        self.assertGreaterEqual(gap, 8)
+        busy = 0
+        waits = []
+        with mock.patch.object(host_pace, 'sleep', waits.append):   # workers asleep in parallel: the clock does not move between their reservations
+          for _ in range(40):   # fictional 40 checks of other employers on the same host
+            try:
+                host_pace.turn(self.base + '/ok')
+            except host_pace.Busy:
+                busy += 1
+        self.assertGreater(busy, 0)
+        self.assertLessEqual(max(waits or [0]), host_pace.MAX_WAIT)
+
     def test_speeds_up_after_a_run_of_good_answers_and_remembers(self):
         host_pace.answer(self.base, 429, wait=8)
         slow = host_pace._load()['127.0.0.1']['gap']
