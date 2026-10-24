@@ -15,8 +15,9 @@ test('with no incognito access the tab step opens nothing and the fixture site s
   const site = http.createServer((request, response) => { seen.push({url: request.url, cookie: request.headers.cookie || ''}); response.writeHead(200, {'content-type': 'text/html'}); response.end('<title>Jobs</title>'); });
   await new Promise(resolve => site.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${site.address().port}/jobs`;
-  const app = await startRealExtension({extensionDir, allowAllSites: true});
+  let app;   // the launch is inside the try: a browser that will not start used to leave this server listening, and the test process never ended (every e2e.yml and harness-daily run hung from 21 Oct 2026)
   try {
+    app = await startRealExtension({extensionDir, allowAllSites: true});
     await app.context.addCookies([{name: 'session', value: 'owner-login', url}]);
     const worker = app.context.serviceWorkers()[0];
     const id = new URL(worker.url()).host;
@@ -35,5 +36,5 @@ test('with no incognito access the tab step opens nothing and the fixture site s
     await page.goto(url);
     assert.match(seen[0]?.cookie || '', /session=owner-login/);
     await app.assertIsolated();
-  } finally { await app.close(); site.close(); }
+  } finally { await app?.close(); site.close(); }
 });
