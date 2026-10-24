@@ -22,13 +22,6 @@ test('compact list: match label and age', () => {
   assert.equal(ago('2099-01-01', now), '');  // a date in the future: no age
 });
 
-test('tags come from the title and fit summary, at most four, no false "Go"', () => {
-  assert.deepEqual(tags({title: 'Senior SRE', reason: 'Kubernetes on AWS, OpenTelemetry rollout'}), ['SRE', 'OpenTelemetry', 'Kubernetes', 'AWS']);
-  assert.deepEqual(tags({title: 'Backend Engineer', reason: 'Strong Go and Postgres'}), ['Go', 'Databases']);
-  assert.deepEqual(tags({title: 'Engineer', reason: 'Good fit; we go remote'}), []);
-  assert.equal(tags({title: 'SRE devops platform', reason: 'kubernetes aws terraform python'}).length, 4);
-});
-
 test('the counters: total, high fit, new this week, unique companies', () => {
   const now = Date.parse('2026-09-28T12:00:00Z');
   const jobs = [
@@ -247,4 +240,22 @@ test('a job whose place is unclear says so instead of "not scored yet"', () => {
   const render = fs.readFileSync(new URL('../renderer/pages/jobs-render.js', import.meta.url), 'utf8');
   assert.match(render, /pill\(PLACE_UNCLEAR, 'warn'\)/, 'the row shows the badge');
   assert.match(render, /job\.status === 'unreviewed' && !job\.place_unclear\)\.length/, 'the AI banner leaves these out');
+});
+
+test('tags are the skills the AI read from the posting, for any trade and language, never a word list', () => {
+  const jobs = [
+    {title: 'Pflegefachperson Nachtdienst', reason: 'Patient monitoring, Palliativ', skills: ['Palliativpflege', 'Wundversorgung', 'Schichtdienst', 'Dipl. Pflege HF', 'Extra']},
+    {title: 'Chauffeur CE', reason: 'Nahverkehr', skills: [' Kat. CE ', 'Tachograph', 'Tachograph', '']},
+    {title: 'Senior SRE', reason: 'Kubernetes on AWS', skills: ['Terraform']},
+  ];
+  assert.deepEqual(tags(jobs[0]), ['Palliativpflege', 'Wundversorgung', 'Schichtdienst', 'Dipl. Pflege HF']);
+  assert.deepEqual(tags(jobs[1]), ['Kat. CE', 'Tachograph']);
+  assert.deepEqual(tags(jobs[2]), ['Terraform']);
+  // Title and fit line alone never make a tag: "monitoring" on a nurse is not "Observability"; a job the AI has not read has none.
+  assert.deepEqual(tags({title: 'Senior SRE Kubernetes AWS', reason: 'monitoring observability'}), []);
+});
+
+test('jobs-view.js holds no tech word list', () => {
+  const source = fs.readFileSync(new URL('../renderer/jobs-view.js', import.meta.url), 'utf8');
+  for (const word of ['Observability', 'Kubernetes', 'Terraform', 'OpenTelemetry', 'DevOps']) assert.ok(!source.includes(word), word);
 });

@@ -2,19 +2,10 @@
 import {isInbound} from './origin.js';
 import {READY_LABEL} from './pages/ready-rows.js';
 
-// Skills and topics shown as tags under a role, found in its title and fit summary (first match wins per tag).
-const TAGS = [
-  ['SRE', /\bsre\b|site reliability/i], ['DevOps', /\bdevops\b/i], ['Platform', /\bplatform\b/i],
-  ['Observability', /observability|monitoring/i], ['OpenTelemetry', /opentelemetry|\botel\b/i],
-  ['Kubernetes', /kubernetes|\bk8s\b/i], ['AWS', /\baws\b/i], ['GCP', /\bgcp\b|google cloud/i], ['Azure', /\bazure\b/i],
-  ['Terraform', /terraform/i], ['IaC', /infrastructure[- ]as[- ]code|\biac\b/i], ['GitOps', /gitops|argo ?cd/i],
-  ['Python', /\bpython\b/i], ['Go', /\b(Go|Golang|golang)\b/], ['Linux', /\blinux\b/i], ['Ceph', /\bceph\b/i],
-  ['Databases', /database|postgres|mysql/i], ['Distributed Systems', /distributed systems?/i], ['Security', /security/i],
-  ['Networking', /networking/i], ['On-call', /on-?call/i], ['AI infra', /\bai\b|\bml\b|machine learning|\bllm/i],
-];
+// Skills, tools, licences or topics under a role: what the AI read from the posting (src/ai/enrich.py `technologies`, in the posting's language), for any trade.
 export function tags(job, max = 4) {
-  const text = `${job.title || ''} ${job.reason || ''}`;
-  return TAGS.filter(([, pattern]) => pattern.test(text)).map(([tag]) => tag).slice(0, max);
+  const skills = (Array.isArray(job.skills) ? job.skills : []).map(skill => String(skill).trim()).filter(Boolean);
+  return [...new Set(skills)].slice(0, max);
 }
 
 const WEEK = 7 * 24 * 3600 * 1000;

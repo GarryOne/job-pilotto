@@ -22,7 +22,7 @@ def store_jobs(stores):
         if url and url_key(url) not in found:
             found[url_key(url)] = {'url': url, 'title': match.get('title') or '', 'company': match.get('company') or '',
                                    'location': match.get('location') or '', 'work_mode': match.get('work_mode') or '',
-                                   'fit': _score(match.get('fit')), 'reason': match.get('reason') or '',
+                                   'fit': _score(match.get('fit')), 'reason': match.get('reason') or '', 'technologies': match.get('technologies') or '',
                                    'fit_detail': match.get('fit_detail') or {'strengths': '', 'gaps': '', 'parts': {}},
                                    'match_status': match.get('status'), 'first_seen': match.get('first_seen') or ''}
     for app in stores.applications.list():

@@ -215,6 +215,7 @@ class Tracker:
                     found[normalize_url(url)] = {'url': url, 'title': text(props.get('Job')), 'company': text(props.get('Company')),
                                   'location': text(props.get('Location')), 'work_mode': select(props.get('Work mode')) or '',
                                   'fit': (props.get('Score') or {}).get('number'), 'reason': text(props.get('Reason')),
+                                  'technologies': text(props.get('Technologies')),
                                   # Why the score: its parts, strengths and gaps (the app's score card).
                                   'fit_detail': {'strengths': text(props.get('Strengths')), 'gaps': text(props.get('Gaps')),
                                                  'parts': {key: (props.get(column) or {}).get('number') for key, column in (

@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from . import digest, store
-from .ai import provenance, score
+from .ai import enrich, provenance, score
 from .notion.client import job_code
 
 # Notion Applications Stage -> the app's status. With Notion connected the Stage is the only source of truth;
@@ -28,6 +28,12 @@ GONE = ('Not seen', 'Closed')  # Job Matches statuses of postings no longer list
 NOT_YET = ('', 'Saved', 'Kit ready')
 
 
+def skills_of(value):
+    """The skills the AI read from a posting, as a list: a '; '-joined store column or the facts' own list, distinct, at most 8."""
+    items = value.split(';') if isinstance(value, str) else (value or [])
+    return list(dict.fromkeys(str(item).strip() for item in items if str(item).strip()))[:8]
+
+
 def _kit(stage, step):
     return stage == 'Kit ready' or step.startswith(('📝 Kit ready', NOT_ELIGIBLE))
 
@@ -46,6 +52,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     waiting = 0
     candidates, blocked = digest.eligible_jobs(db)
     fits = score.load(db)
+    facts = enrich.load(db)   # the AI's reading of each posting: the skills shown as tags under a job
     local = {(job.get('url') or '').strip(): job for job in candidates}
     # A link you added stays in the list even when a crawl would have filtered that company or that wording out.
     asked = {(job.get('url') or '').strip() for job in candidates + blocked if (job.get('notes') or '') == 'imported'}
@@ -65,7 +72,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
                 'title': job.get('title') or '', 'company': job.get('company') or '', 'location': job.get('location') or '',
                 'work_mode': job.get('work_mode') or '', 'url': job.get('url') or '',
                 'posted_at': job.get('posted_at') or '', 'first_seen_at': job.get('first_seen_at') or '',
-                'status': status, 'fit': fit, 'reason': reason or '', 'rank': digest.rank_score(job) if job.get('id') else 0,
+                'status': status, 'fit': fit, 'reason': reason or '', 'skills': skills_of(extra.pop('technologies', '') or (facts.get(job.get('id')) or {}).get('technologies')), 'rank': digest.rank_score(job) if job.get('id') else 0,
                 'notion_url': page or '',  # the job's Applications page: kit, verdict, notes
                 'stage': stage or '',  # the Applications Stage (Applied, Interviewing, Rejected…): the app's application counters
                 # A kit writes Next step (Kit ready / Not eligible); the stage can stay Saved if the job was starred first.
@@ -92,7 +99,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
             rows.append(row(job, item.get('fit'), item.get('reason'), status, stage, item.get('next_step'), item.get('notion_url'),
                             rejection=item.get('rejection') or '', rejection_lesson=item.get('rejection_lesson') or '',
                             feedback_status=item.get('feedback_status') or '', employer_feedback=item.get('employer_feedback') or '',
-                            page_id=item.get('page_id') or '', fit_detail=item.get('fit_detail') or None,
+                            page_id=item.get('page_id') or '', fit_detail=item.get('fit_detail') or None, technologies=item.get('technologies') or '',
                             kit_state=kit_state, next_interview=item.get('next_interview') or '',
                             # Outbound or inbound (desktop/renderer/origin.js), and what the "In conversation" rows show.
                             origin=item.get('origin') or '', source=item.get('source') or '', notes=item.get('notes') or '',

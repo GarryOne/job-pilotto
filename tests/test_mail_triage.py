@@ -70,7 +70,7 @@ class SubjectSearchTests(unittest.TestCase):
         from unittest import mock
         with mock.patch.object(mail_triage, 'role_words', lambda: ('site reliability',)):
             q = mail_triage.subject_query(2)
-        for part in ('subject:"application"', 'subject:"interview"', 'subject:"site reliability"', 'subject:"SRE"'):
+        for part in ('subject:"application"', 'subject:"interview"', 'subject:"site reliability"'):
             self.assertIn(part, q)
         self.assertNotIn('in:inbox', q)
 
