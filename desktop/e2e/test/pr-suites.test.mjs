@@ -32,3 +32,11 @@ test('the report warns about an untouched suite and says so plainly when nothing
   assert.deepEqual(report({strings: ['Backup saved to the folder'], hits, changedFiles: ['desktop/e2e/lib/layout.mjs'], sources}).stale, []);
   assert.match(report({strings: [], hits: {}, changedFiles: [], sources}).text, /no suite is named/);
 });
+
+import {planPrSuites, MAX_PR_SUITES} from '../lib/pr-suites.mjs';
+
+test('the PR plan joins pointed and quoting suites, keeps Linux ones, drops manual ones, and caps the count', () => {
+  const plan = planPrSuites({pointed: ['settings', 'apply'], hits: {jobs: ['x'], quality: ['y'], personas: ['z'], strategy: ['w'], focus: ['v']}, linux: suite => suite !== 'apply', cadence: {personas: 'manual'}});
+  assert.deepEqual(plan.suites, ['settings', 'jobs', 'quality', 'strategy'].slice(0, MAX_PR_SUITES));
+  assert.deepEqual(plan.left, ['apply', 'focus'], 'a Mac suite and the ones over the cap are left to the gate; a manual suite is not named at all');
+});

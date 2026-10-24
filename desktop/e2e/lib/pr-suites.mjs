@@ -58,3 +58,13 @@ export function report({strings, hits, changedFiles, sources}) {
   }
   return {rows, stale: stale.map(row => row.suite), text: lines.join('\n')};
 }
+
+// The suites to run ON the PR (report only): the ones its files point at (plan.mjs suitesFor: a suite's own file, the extension, the harness) plus the ones that quote removed UI text,
+// on the Linux runner only (a macOS suite is left to the gate: the Free plan runs few macOS jobs at once), at most MAX_PR_SUITES.
+export const MAX_PR_SUITES = 4;
+export function planPrSuites({pointed = [], hits = {}, linux, cadence = {}}) {
+  const wanted = [...new Set([...pointed, ...Object.keys(hits)])].filter(suite => (cadence[suite] || 'always') !== 'manual');
+  const onLinux = wanted.filter(suite => linux(suite));
+  const chosen = onLinux.slice(0, MAX_PR_SUITES);
+  return {suites: chosen, left: wanted.filter(suite => !chosen.includes(suite))};
+}
