@@ -3,6 +3,7 @@
 // person's to decide, and never submits. Starts from a set-up install; writes and removes only its own jobs in its Notion page. The forms are local
 // (lib/forms.mjs, behind the real job-site host names), the AI answer is canned, so the suite costs nothing and no employer site is contacted.
 import fs from 'node:fs';
+import {parseShard, shardTurn} from '../lib/replay-shard.mjs';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, notLeftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {CHAIN, FORMS, HOSTS, LATE, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, MENU_FIRST, MENU_AGAIN, PROPOSE, REVEAL, COLLAPSED, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
@@ -53,7 +54,14 @@ export async function runApply(ctx, parts) {
   await ensureSetUp(ctx);   // before the filter below: a new Notion page is built by the wizard's own steps
   const all = ctx.run;
   const live = parts.includes('live') ? livePosting() : null;   // the live run: one real posting, read from this Mac's job list; the fixture checks do not apply to it
-  ctx.run = (name, fn, options) => ((partOf(name) === 'both' && !(live && name.startsWith('through all of it'))) || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
+  // A slice of the journeys (applyflows `shards`, JP_REPLAY_SHARD=i/n): the shared steps run in every slice, the journey steps take turns (lib/replay-shard.mjs shardTurn).
+  const slice = parts.includes('flows') && !live ? parseShard(process.env.JP_REPLAY_SHARD) : null;
+  let turn = 0;
+  ctx.run = (name, fn, options) => {
+    if (!((partOf(name) === 'both' && !(live && name.startsWith('through all of it'))) || parts.includes(partOf(name)))) return undefined;
+    if (slice && partOf(name) === 'flows' && !shardTurn(turn++, slice)) return undefined;
+    return all(name, fn, options);
+  };
   // The jobs this part seeds: the journeys use their own fixtures, the forms and the CV steps the form fixtures.
   const fixtures = [...(live ? [live] : []), ...(parts.some(part => !['flows', 'live'].includes(part)) ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, LATE, SIGNUP, SIGNIN, SIGNIN_REFUSED, MENU_FIRST, MENU_AGAIN, PROPOSE, REVEAL, COLLAPSED, ONEPAGE, MISLABELLED] : [])];
   const urls = fixtures.map(form => form.url);

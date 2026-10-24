@@ -8,7 +8,7 @@ import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
 import {SUITES} from '../lib/context.mjs';
 import {budgetMsOf} from '../lib/runner.mjs';
-import {shardOf} from '../lib/replay-shard.mjs';
+import {shardOf, shardTurn} from '../lib/replay-shard.mjs';
 import {loadCases} from '../lib/page-replay.mjs';
 import {shardLegs, suiteOfKey, windowsMatrix} from '../lib/suite-shards.mjs';
 import {planRun} from '../plan-run.mjs';
@@ -24,6 +24,7 @@ test('every slice of a sharded suite fits its budget on Windows (the slower lane
     const suite = await import(`../suites/${name}.mjs`);
     if (!suite.shards) continue;
     sharded.push(name);
+    if (suite.stepSharded) continue;   // its slices are steps (below)
     assert.ok(suite.secondsPerCaseOnWindows > 0, `${name}: say what one case takes on Windows (secondsPerCaseOnWindows), measured from a gate run`);
     const cases = loadCases(), budget = budgetMsOf(suite) / 1000;
     for (let index = 1; index <= suite.shards; index++) {
@@ -78,4 +79,22 @@ test('every workflow job that runs a suite passes its slice and names everything
     for (const line of job.block.split('\n').filter(text => text.includes('matrix.suite') && !allowed.test(text)))
       assert.fail(`${job.file} ${job.id}: name it by matrix.key, not matrix.suite (two slices would share it): ${line.trim()}`);
   }
+});
+
+test('a step-sharded suite gives every step to exactly one slice, and splits the work in near halves', () => {
+  for (const count of [1, 2, 3, 4]) {
+    for (let ordinal = 0; ordinal < 14; ordinal++) {
+      const owners = Array.from({length: count}, (_, at) => at + 1).filter(index => shardTurn(ordinal, {index, count}));
+      assert.equal(owners.length, 1, `step ${ordinal} of ${count} slices`);
+    }
+  }
+  assert.equal(shardTurn(5, null), true, 'no slice: every step runs');
+});
+
+test('applyflows is two slices of steps whose seconds are within a third of each other (a gate run, 23 Oct 2026)', async () => {
+  const suite = await import('../suites/applyflows.mjs');
+  assert.equal(suite.shards, 2);
+  const seconds = [26.7, 10.9, 13.5, 51.3, 23.3, 34.0, 21.9, 72.1, 41.7, 19.8, 75.5, 40];   // the 12 journey steps' seconds in that run (the 13th has none: it failed)
+  const sum = index => seconds.filter((_, ordinal) => shardTurn(ordinal, {index, count: 2})).reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(sum(1) - sum(2)) / (sum(1) + sum(2)) < 0.34, `slices ${sum(1)} vs ${sum(2)}`);
 });

@@ -21,6 +21,10 @@ export function parseShard(spec) {
   return {index, count};
 }
 
+// A suite that runs steps, not cases (applyflows): the n-th step (0-based, in the order the suite meets them) belongs to slice `index` of `count` when this is true. Round-robin: every
+// step is in exactly one slice, and the costs alternate (test/suite-shards.test.mjs).
+export const shardTurn = (ordinal, shard) => !shard || ordinal % shard.count === shard.index - 1;
+
 // Greedy: the costliest case first into the lightest slice. -> the cases of slice `index` (1-based) of `count`.
 export function shardOf(items, index, count, seconds = readSeconds()) {
   const slices = Array.from({length: count}, () => ({cost: 0, items: []}));
