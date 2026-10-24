@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {findCard, stepChips} from '../renderer/find-card-model.js';
 import {BLOCKED} from '../lib/demo.js';
-import {SCRIPT, play, isSearchRun, isQuietStep, hideJobsUntilSearched} from '../lib/demo-search.js';
+import {SCRIPT, play, isSearchRun, isQuietStep, hideJobsUntilSearched, SECONDS_ENV} from '../lib/demo-search.js';
 import {searchTrigger} from '../lib/search-steps.js';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -105,4 +105,14 @@ test('the Find jobs card sits where the list appears: after the counters and the
   assert.ok(at('id="find-card"') > at('class="stat-cards"') && at('id="find-card"') > at('class="list-bar"'), 'below the counters and the list bar');
   assert.ok(at('id="find-card"') < at('id="jobs-head"') && at('id="find-card"') < at('id="jobs-body"'), 'above the list');
   assert.match(read('renderer/find-card.css'), /find-card="empty"\] #jobs-head, body\[data-find-card="empty"\] #jobs-empty \{ display: none/, 'no column titles or "no jobs yet" line beside the empty card');
+});
+
+test('demo: JOB_PILOTTO_DEMO_SEARCH_SECONDS sets how long the scripted search lasts (the hero plays a short one)', async () => {
+  const total = async env => { const waits = []; await play(() => {}, {sleep: async ms => { waits.push(ms); }, env}); return waits.reduce((sum, ms) => sum + ms, 0); };
+  assert.equal(SECONDS_ENV, 'JOB_PILOTTO_DEMO_SEARCH_SECONDS');
+  const usual = await total({});
+  assert.ok(Math.abs(await total({[SECONDS_ENV]: '5'}) - 5000) <= SCRIPT.length, 'lasts 5 s (rounding only)');
+  assert.ok(Math.abs(await total({[SECONDS_ENV]: '60'}) - 60000) <= SCRIPT.length, 'or longer');
+  for (const bad of ['', '0', '-3', 'soon']) assert.equal(await total({[SECONDS_ENV]: bad}), usual, `"${bad}" keeps the usual length`);
+  assert.equal((await total({[SECONDS_ENV]: '5'})) < usual, true);
 });
