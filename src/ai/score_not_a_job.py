@@ -3,6 +3,7 @@ fixed answer basis.one_job (SCHEMA in src/ai/score.py) is False, so its score dr
 "Finance vacatures", a recruiter's category page, sat in a finance candidate's top 10). An answer without the field (scored before it) is one job.
 Tests: tests/test_score_not_a_job.py."""
 
+REASON = 'Not scored as a match: this text is not one job you can apply to'   # the row's line in place of the model's own, which praised a fit the score no longer has
 GAP = 'Not one job you can apply to: a list of jobs, a category or a search page'
 
 
@@ -11,9 +12,9 @@ def is_one_job(data):
 
 
 def mark(data):
-    """The answer as kept: unchanged for one job; score 0, tier C and the reason first for anything else."""
+    """The answer as kept: unchanged for one job; score 0, tier C, its reason and the gap first for anything else."""
     if is_one_job(data):
         return data
-    data['score'], data['tier'] = 0, 'C'
+    data['score'], data['tier'], data['reason'] = 0, 'C', REASON
     data['gaps'] = [GAP, *[gap for gap in data.get('gaps') or [] if gap != GAP]][:3]
     return data
