@@ -22,7 +22,7 @@ The tailored CV is the person's own PDF with only the changed text re-set:
    colour). A role's bullets are re-stacked in the new order inside the block's lines; markers (text or vector) move with them.
 5. **Fit**: an item longer than its lines keeps its original wording (warning in the review). Nothing else moves; page count is fixed.
 6. **Letters the subset lacks** (`lib/pdf-edit/fonts.js`): another subset of the same face in the file → the same font installed →
-   the same free font downloaded once → a bundled same-width twin → keep the original sentence.
+   the same free font downloaded once → a same-width free twin (downloaded once) → keep the original sentence.
 7. **Fallback**: a PDF that can't be read this way (no text layer, text in forms, operator counts that don't match) uses the template.
 8. **Review**: the tailored pages with the changed lines boxed; the panel keeps every feature of today's review page.
 
@@ -35,12 +35,12 @@ word-like (simple fonts, justified, 2 pages), latex-like (no space glyphs). Each
 same page count and size, fonts and sizes 100% of the original's, pixel drift ≤ 3% (≤ 9% LaTeX-like), old text gone, new text present.
 
 ## Progress
-- [ ] Spec + fixtures (fictional look-alikes, cv.json, tailorings) (proof: none: this commit)
-- [ ] Failing tests on today's build (shape gate)
-- [ ] Read + lexer + layout + write (pdf-lib), reword in place
-- [ ] Map cv.json → page lines; bullet blocks re-stacked with markers
-- [ ] Tailor prompt: room per item, no drops in place
-- [ ] Font fallback chain (installed, download once, bundled twins)
-- [ ] Wire into Tailor CV with the template fallback; review page on the real pages
+- [x] Spec + fixtures (fictional look-alikes, cv.json, tailorings) (proof: desktop/test/fixtures/cv-shapes/)
+- [x] Tests on the six shapes (proof: desktop/test/cv-inplace.test.js)
+- [x] Read + lexer + layout + write (pdf-lib), reword in place (proof: desktop/test/pdf-edit.test.js)
+- [x] Map cv.json → page lines; bullet blocks re-stacked with markers (proof: desktop/test/cv-inplace.test.js)
+- [x] Tailor prompt: room per item, no drops in place (proof: desktop/test/cv-inplace-run.test.js)
+- [x] Font fallback chain (installed, download once, same-width twin downloaded once) (proof: desktop/test/pdf-edit-fonts.test.js)
+- [x] Wire into Tailor CV with the template fallback; review page on the real pages (proof: desktop/test/cv-inplace-run.test.js)
 - [ ] Re-measure the 9 real samples on the Mac (local only), before/after to the owner
 - [ ] Next step (separate PR): DOCX in place
