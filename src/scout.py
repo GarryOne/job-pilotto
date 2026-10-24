@@ -23,11 +23,12 @@ import re
 import sys
 import threading
 import time
+from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import timedelta
 from html import escape
 from pathlib import Path
-from . import budget_tape, contribute, employer_index, scout_need, scout_overrun, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
+from . import budget_tape, contribute, employer_index, scout_carry, scout_need, scout_overrun, scout_queue, scout_role_search, run_log, scout_core, store, telegram, tgcard
 from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests patch scout.notion (its Tracker)
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
@@ -450,6 +451,8 @@ def main():
             with scout_overrun.phase('reading what installs shared'):
                 contributions, shared_dead = fetched or fetch_contributions(index_url, key, with_nofeed=True)
             swiss_titles = []
+            with scout_overrun.phase('reading the index published now, to carry its feeds'):
+                scout_carry.seed(db, index_url, key)
             with scout_overrun.phase(f'checking every feed for the index'):
                 feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions, workers=24,
                                                 boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles, deadline=deadline, carry=True)
@@ -462,6 +465,7 @@ def main():
             with scout_overrun.phase('uploading the index'):
                 count = publish_index(feeds_out, index_url, key, stats=stats, nofeed=dead_ends(db, shared_dead), boards=boards)
             print(publish_summary(feeds_out, contributions, boards))
+            print('Feeds by system: ' + ', '.join(f'{system} {n}' for system, n in Counter(f['ats'] for f in feeds_out).most_common()))
             print('Market coverage (our index / jobs.ch): ' + ', '.join(f"{m['term']} {m['ours']}/{m['jobsch']}" for m in stats['market']))
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     from .ai import cost as ai_cost

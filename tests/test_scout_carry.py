@@ -66,3 +66,31 @@ class BoundedWaitTest(unittest.TestCase):
         feeds, _ = scout.build_index(self.db, self.starter, stuck, today='2026-10-21', workers=3, carry=True, deadline=time.monotonic() + 0.1)
         self.assertLess(time.monotonic() - began, 2)
         self.assertEqual(len(feeds), 3)   # all three carried from the first run
+
+
+class SeedTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db = job_store.connect(Path(self.tmp.name) / 'j.sqlite').__enter__()
+        self.db.executescript(scout.TABLES)
+        self.published = {'feeds': [{'company': f'Co {i}', 'ats': 'lever', 'slug': f'co{i}', 'tier': 'Standard', 'quality': 1, 'jobs': 1, 'relevant': 1,
+                                     'checked': '2026-10-22', 'fresh': {}} for i in range(5)]}   # fictional
+
+    def test_a_first_slice_run_keeps_every_feed_of_the_published_index_it_has_not_read(self):
+        # 24 Oct 2026: the first slice run had nothing to carry and left 1250 feeds out of the published index
+        self.assertEqual(scout_carry.seed(self.db, 'https://x/api/index', 'k', get=lambda request: self.published), 5)
+        starter = [{'company': f'Co {i}', 'ats': 'lever', 'slug': f'co{i}'} for i in range(5)]
+        feeds, _ = scout.build_index(self.db, starter, lambda s, slug: job(), today='2026-10-24', carry=True, deadline=time.monotonic() - 1)
+        self.assertEqual(sorted(f['slug'] for f in feeds), [f'co{i}' for i in range(5)])
+        self.assertEqual({f['checked'] for f in feeds}, {'2026-10-22'})   # dated by their real read
+
+    def test_a_download_that_fails_adds_nothing_and_is_not_fatal(self):
+        def down(request):
+            raise OSError('offline')
+        self.assertEqual(scout_carry.seed(self.db, 'https://x/api/index', 'k', get=down), 0)
+
+    def test_an_entry_this_scout_stored_itself_is_not_replaced(self):
+        scout.build_index(self.db, [{'company': 'Co 0', 'ats': 'lever', 'slug': 'co0'}], lambda s, slug: job(), today='2026-10-23', carry=True)
+        scout_carry.seed(self.db, 'https://x/api/index', 'k', get=lambda request: self.published)
+        self.assertEqual(self.db.execute("SELECT verified_at FROM feed_entries WHERE slug = 'co0'").fetchone()[0], '2026-10-23')
