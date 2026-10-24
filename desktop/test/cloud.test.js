@@ -62,7 +62,7 @@ test('turning it on fills the repo the app was installed on: schedules, settings
   assert.ok(!gh.calls.some(c => c.route === '/user/repos'));  // never creates repos: it has no such permission
   for (const file of ['.github/workflows/daily.yml', '.github/workflows/scout.yml', '.github/workflows/mail.yml', 'README.md',
     'config/search.json', 'config/preferences.json']) assert.ok(gh.files[file], file);
-  assert.match(Buffer.from(gh.files['.github/workflows/daily.yml'].content, 'base64').toString(), /GarryOne\/job-pilotto\/.github\/workflows\/daily.yml@main/);
+  assert.match(Buffer.from(gh.files['.github/workflows/daily.yml'].content, 'base64').toString(), /GarryOne\/jobadabra\/.github\/workflows\/daily.yml@main/);
 
   const secrets = Object.fromEntries(gh.calls.filter(c => c.method === 'PUT' && c.route.includes('/actions/secrets/'))
     .map(c => [c.route.split('/').pop(), gh.open(c.data.encrypted_value)]));
