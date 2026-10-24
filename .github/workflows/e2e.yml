@@ -169,12 +169,13 @@ jobs:
     needs: plan
     if: needs.plan.outputs.count != '0'   # a push that changed no suite, a scheduled run with nothing new, or a night with no build: no suites
     runs-on: ${{ inputs.all_on_mac && 'macos-latest' || matrix.os || 'macos-latest' }}   # Linux unless the suite needs the Mac (lib/plan.mjs runnerOf); a virtual display there
-    timeout-minutes: ${{ matrix.minutes }}
+    timeout-minutes: 360   # the lock's wait (up to 3 h) plus the suite; each step below has its own limit, so this only ends a hung wait
     strategy:
       fail-fast: false      # one suite failing must not hide what the others found
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     concurrency:
-      group: ${{ inputs.pr_suites != '' && format('e2e-pr-{0}-{1}', github.ref, matrix.key) || format('e2e-{0}', matrix.key) }}   # a suite never overlaps itself; a pull request's run has its own group, so it never cancels a gate job waiting in e2e-<suite>
+      # A pull request's run cancels an older run of the SAME pull request; no other job shares a group (a shared group drops its second waiter: the suite's lock waits instead).
+      group: ${{ inputs.pr_suites != '' && format('e2e-pr-{0}-{1}', github.ref, matrix.key) || format('e2e-run-{0}-{1}', github.run_id, matrix.key) }}
       cancel-in-progress: ${{ inputs.pr_suites != '' }}
     env:
       # A suite whose secrets are missing FAILS here instead of a green "skipped" (lib/skip.mjs). 6 Oct 2026: failuresnotion and failureschannels
@@ -218,10 +219,18 @@ jobs:
       JOB_PILOTTO_E2E_EXPECTS_FAILURES: ${{ inputs.mutant && '1' || '' }}   # a mutant run breaks the app on purpose: its crash reports are tagged expected, so the Sentry loop ignores them
       E2E_SEED: ${{ (inputs.fixed || inputs.canary || inputs.soak || inputs.gate_tag || inputs.mutant) && '0' || github.run_id }}   # a different path in every scheduled, top-up or manual run; the release gate, the soak top-ups (their three green runs must be comparable) and the stable canary walk the fixed one (lib/variation.mjs)
       E2E_FULL: ${{ needs.plan.outputs.over != 'true' && (inputs.gate_tag || (github.event_name == 'workflow_dispatch' && !inputs.canary && !inputs.soak && !inputs.mutant && !inputs.scheduled)) && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
+    permissions:
+      contents: write   # tools/e2e-lock.sh creates the lock ref
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ needs.plan.outputs.ref }}   # a push or a schedule: that commit; the run after a build: the build's own commit
+      # Waits for the suite's lock instead of queueing in a concurrency group (GitHub keeps ONE waiting job per group and cancels the older one: beta 14, 24 Oct 2026).
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: lock-tools
+          sparse-checkout: tools/e2e-lock.sh
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -260,6 +269,11 @@ jobs:
           path: desktop/e2e/.ai-cache
           key: ai-answers-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ai-answers-${{ matrix.key }}-
+      # The lock is taken as late as possible (after the installs, which never touch the suite's Notion page): a waiting job holds its runner.
+      - name: Take the suite's lock (it owns one Notion page; waits, never dropped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash lock-tools/tools/e2e-lock.sh acquire "${{ matrix.key }}"
       - name: Run the ${{ matrix.key }} suite
         id: suite_run
         # A red first run is not the verdict (owner, 6 Oct 2026): the step below runs the suite once more on the same commit and decides. Flaky (red, then green)
@@ -379,9 +393,15 @@ jobs:
           name: e2e-artifacts-${{ matrix.key }}
           path: e2e-artifacts/${{ matrix.key }}
           if-no-files-found: ignore
+      - name: Give the suite's lock back
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash lock-tools/tools/e2e-lock.sh release "${{ matrix.key }}"
 
   # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report
   # (uncompressed: the owner's site serves its files straight from the artifact, admin/e2e-report.js) and linked on the run's Summary page.
+
   report:
     name: HTML report
     needs: [plan, suite]
