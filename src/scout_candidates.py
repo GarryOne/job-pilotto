@@ -249,6 +249,18 @@ def industry_countries(countries):
     return list(countries)
 
 
+def central_countries(db, countries):
+    """The countries the general company list asks Wikidata about: the search's own, and for the central scout also the thinnest European country
+    (src/scout_cells.py next_country, an ISO code), one per run: each query takes up to a minute (24 Oct 2026: Estonia had 1 employer)."""
+    if not scout_core.CENTRAL:
+        return countries
+    from . import scout_cells
+    thin = scout_cells.next_country(db)
+    if thin:
+        print(f'Scout: the company list also looks in {thin}, one of the countries with the fewest employers with local jobs.')
+    return list(countries or search_countries()) + ([thin] if thin else [])
+
+
 def search_kinds():
     """The kinds of role the scout looks for employers of: every one for the central scout, the search's own otherwise (none when unknown)."""
     if scout_core.CENTRAL:
@@ -285,7 +297,7 @@ def default_sources(db, seeds, countries, skip=()):
     (owner, 18 Oct 2026: a Lisbon or Berlin search started with Swiss names); a search outside IT reads no tech-only list."""
     every = [named('seeds', lambda: seed_candidates(seeds)), named('hacker news', hacker_news_candidates), named('whiteboards', whiteboards_candidates),
              named('jobs.ch employers', lambda: local_company_candidates(db), 'Switzerland'), named('swissdevjobs', swissdevjobs_candidates, 'Switzerland'),
-             named('wikidata', lambda: wikidata_candidates(countries=countries)), named('board employers', board_employer_candidates),
+             named('wikidata', lambda: wikidata_candidates(countries=central_countries(db, countries))), named('board employers', board_employer_candidates),
              named('wikidata industries', lambda: wikidata_industry_candidates(db, search_kinds(), industry_countries(countries),
                                                                                per_run=CENTRAL_INDUSTRY_QUERIES if scout_core.CENTRAL else INDUSTRY_QUERIES_PER_RUN))]
     if skip:

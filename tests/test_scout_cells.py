@@ -77,3 +77,40 @@ class ThinCellTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CountryTotalsTest(unittest.TestCase):
+    def setUp(self):
+        self.db = sqlite3.connect(':memory:')
+
+    def test_totals_count_employers_with_local_jobs_in_each_european_country_once(self):
+        feeds = [{'countries': ['de', 'de', 'us']}, {'countries': ['de', 'ee']}, {'countries': []}, {}]
+        self.assertEqual(scout_cells.totals(feeds), {'de': 2, 'ee': 1})
+
+    def test_the_summary_line_lists_every_european_country_thinnest_first(self):
+        line = scout_cells.coverage_line({'de': 500, 'ee': 1})
+        for country in scout_cells.EUROPE:
+            self.assertIn(f'{country} ', line)
+        self.assertLess(line.index('ee 1*'), line.index('de 500'))
+        self.assertNotIn('de 500*', line)
+
+    def test_the_company_lists_look_at_the_thinnest_country_then_the_next(self):
+        scout_cells.keep(self.db, [{'countries': ['de']} for _ in range(scout_cells.LOCAL_FLOOR)] + [{'countries': ['ee']}])
+        first = scout_cells.next_country(self.db)
+        self.assertEqual(len(first), 2)
+        self.assertEqual(first, first.upper())
+        self.assertNotEqual(first, 'DE', 'a country at the floor is strong enough')
+        self.assertNotEqual(scout_cells.next_country(self.db), first, 'the next run looks elsewhere')
+
+    def test_no_counts_yet_means_no_extra_country(self):
+        self.assertIsNone(scout_cells.next_country(self.db))
+
+    def test_only_the_central_scout_adds_a_country_to_the_wikidata_list(self):
+        from src import scout_candidates
+        scout_cells.keep(self.db, [{'countries': ['de']}])
+        with mock.patch.object(scout_core, 'CENTRAL', False):
+            self.assertEqual(scout_candidates.central_countries(self.db, ['Switzerland']), ['Switzerland'])
+        with mock.patch.object(scout_core, 'CENTRAL', True):
+            got = scout_candidates.central_countries(self.db, ['Switzerland'])
+        self.assertEqual(got[0], 'Switzerland')
+        self.assertEqual(len(got), 2)
