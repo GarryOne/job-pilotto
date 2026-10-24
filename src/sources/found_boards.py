@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from .. import run_counts
 from ..progress import Ticker
-from . import board_check, board_employers, board_forms, board_web, board_pages, board_routes, board_yield, careers, host_pace
+from . import board_check, board_employers, board_forms, board_sections, board_web, board_pages, board_routes, board_yield, careers, host_pace
 
 MAX_SEARCHES = 2      # the user's board searches per board in the first-jobs slice (fast)
 FULL_SEARCHES = 5     # and in the full read: every query the strategy has, up to this many (a board gave 3 jobs from 2 of the driver's 5, 18 Oct 2026)
@@ -173,6 +173,18 @@ def read_since(stamp):
             if (entry.get('last_read') or '') >= stamp}
 
 
+def _section(page, search, fetch, judge):
+    """(jobs, address) from the section of the board's home page the AI picks for the search's role; ([], None) with the page reader off (tests)."""
+    terms = _terms(search, 1)
+    if careers.READER is None or not page[1] or not terms:
+        return [], None
+    from ..ai import decide
+    try:
+        return board_sections.read(page[1], page[0], terms[0], fetch, decide.decide, judge)
+    except Exception:  # noqa: BLE001 — a fallback never breaks the read
+        return [], None
+
+
 def _another_way(board, entry, proposed, search, fetch, judge, before, show=None):
     """(jobs, state, relevant) for a board whose proposed link gave no relevant job: when its rules read something (a menu, a news search),
     the AI page reader reads its search page (_read_by_ai); else through the search form on its home page
@@ -214,6 +226,11 @@ def _another_way(board, entry, proposed, search, fetch, judge, before, show=None
             entry['form_url'] = entry['search_url'] = template
             print(f"Job boards found: {board['name']} read through its own search form", flush=True)
             return again, state, relevant
+    listed, section = _section(page, search, fetch, judge)   # the board's own section for this kind of work (board_sections.py)
+    if listed:
+        entry['search_url'] = section
+        print(f"Job boards found: {board['name']} read from its own section", flush=True)
+        return listed, 'ok', judge(listed)
     try:
         listed, route = board_routes.discover(page[1], page[0], fetch, board, _terms(search, FULL_SEARCHES))
     except board_routes.Stop:   # its own list refused us: the search page's answer stands, the board is not marked for a visit
