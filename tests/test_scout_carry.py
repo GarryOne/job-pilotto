@@ -44,3 +44,25 @@ class CarryTest(unittest.TestCase):
     def test_without_carry_nothing_is_kept(self):
         scout.build_index(self.db, self.starter[:3], lambda s, slug: job(), today='2026-10-20')
         self.assertEqual(self.db.execute("SELECT name FROM sqlite_master WHERE name = 'feed_entries'").fetchall(), [])
+
+
+class BoundedWaitTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db = job_store.connect(Path(self.tmp.name) / 'j.sqlite').__enter__()
+        self.db.executescript(scout.TABLES)
+        self.starter = [{'company': f'Co {i}', 'ats': 'lever', 'slug': f'co{i}'} for i in range(3)]
+
+    def test_a_fetch_stuck_past_the_deadline_is_not_waited_for_and_its_feed_is_carried(self):
+        scout.build_index(self.db, self.starter, lambda s, slug: job(), today='2026-10-20', carry=True)
+        from src import scout_index
+        scout_index.FETCH_GRACE_S = 0.2
+        self.addCleanup(setattr, scout_index, 'FETCH_GRACE_S', 20)
+        def stuck(system, slug):
+            time.sleep(5)   # a fetch asleep behind a slow site
+            return job()
+        began = time.monotonic()
+        feeds, _ = scout.build_index(self.db, self.starter, stuck, today='2026-10-21', workers=3, carry=True, deadline=time.monotonic() + 0.1)
+        self.assertLess(time.monotonic() - began, 2)
+        self.assertEqual(len(feeds), 3)   # all three carried from the first run

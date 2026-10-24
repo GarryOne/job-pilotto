@@ -9,7 +9,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from datetime import datetime, timedelta
 from . import contribute, pool_tags, regions, role_kinds, scout_carry
 from .notion import cron_runs
@@ -169,8 +169,20 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
             return {'company': meta['company'], 'ats': system, 'slug': slug, 'error': f'{type(error).__name__}: {error}'}
 
     items = scout_carry.order(db, list(known.items())) if carry else list(known.items())
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        results = list(pool.map(check, items))
+    pool = ThreadPoolExecutor(max_workers=workers)
+    try:
+        futures = [(item, pool.submit(check, item)) for item in items]
+        # No waiting past the deadline (+ a short grace): a fetch already under way may sit for minutes behind a slow site, and the job's limit does not
+        # wait for it (23 Oct 2026: 20 workers were in a fetch when the run was cancelled). Such a feed is skipped, and carried over when `carry` is on.
+        stop = None if deadline is None else deadline + FETCH_GRACE_S
+        results = []
+        for ((system, slug), _), future in futures:
+            try:
+                results.append(future.result(timeout=None if stop is None else max(0.0, stop - time.monotonic())))
+            except FutureTimeout:
+                results.append({'skipped': True, 'ats': system, 'slug': slug})
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     skipped = sum(1 for r in results if r.get('skipped'))
     left_over = [(r['ats'], r['slug']) for r in results if r.get('skipped')]
     if skipped:
@@ -188,6 +200,7 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
     return kept, failed
 
 
+FETCH_GRACE_S = 20   # after the deadline, a feed fetch under way gets this long to answer
 QUIET_DAYS = 90   # a feed with no open job of any kind for this long leaves the published index (it stays known, and returns when it lists jobs)
 
 
