@@ -2,7 +2,10 @@
 // with the CV's changes marked. Storage is reached through a getter (it is made after this runs). Guards: the cv, cv-look and tailor tests in desktop/test.
 import * as cvLook from './cv-look.js';
 import * as cvlib from './cv.js';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 
 export function createCvWindows(ctx) {
@@ -23,6 +26,16 @@ export function createCvWindows(ctx) {
   async function pageImages(pdfPath, count) {
     const probe = await cvLook.probeWindow(BrowserWindow, pdfPath);
     try { const out = []; for (let n = 1; n <= count; n++) out.push(await probe.page(n)); return out; } finally { probe.close(); }
+  }
+  // A Word CV drawn by docx-preview and printed to PDF with Word's page size and margins (cv/docx-render.html). faces: lib/docx/fonts.js facesFor.
+  async function renderDocx(bytes, faces = []) {
+    const win = new BrowserWindow({show: false, width: 900, height: 1200, webPreferences: {sandbox: true, contextIsolation: true}});
+    try {
+      await win.loadFile(path.join(here, '..', 'cv', 'docx-render.html'));
+      for (let i = 0; i < 100 && !(await win.webContents.executeJavaScript('window.cvDocxReady === true')); i++) await new Promise(resolve => setTimeout(resolve, 100));
+      const page = await win.webContents.executeJavaScript(`window.cvDocx.render(${JSON.stringify(Buffer.from(bytes).toString('base64'))}, ${JSON.stringify(faces)})`);
+      return {pdf: await win.webContents.printToPDF({preferCSSPageSize: true, printBackground: true}), page};
+    } finally { win.destroy(); }
   }
   async function printPdf(htmlFile) {
     const printer = new BrowserWindow({show: false, width: 794, height: 1123, webPreferences: {sandbox: true, contextIsolation: true, javascript: true}});
@@ -61,5 +74,5 @@ export function createCvWindows(ctx) {
     review.loadFile(cvlib.reviewPage(getStorage(), record));
     return true;
   }
-  return {keepLook, printPdf, openTailoredCv, readCvPdf, pageImages};
+  return {keepLook, printPdf, renderDocx, openTailoredCv, readCvPdf, pageImages};
 }

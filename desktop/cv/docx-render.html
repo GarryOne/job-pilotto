@@ -1,0 +1,88 @@
+<!doctype html>
+<!-- Runs in a hidden window (lib/cv-windows.js renderDocx): draws a Word CV with docx-preview so Chromium can print it to PDF, with Word's
+     page size and margins on every page. Office fonts not on this computer come in as same-width faces (lib/docx/fonts.js). No network. -->
+<meta charset="utf-8">
+<style>
+html, body { margin: 0; padding: 0; background: #fff; font-kerning: none; }
+.docx-wrapper { background: none !important; padding: 0 !important; display: block !important; }
+.docx-wrapper > section.docx { box-shadow: none !important; margin: 0 !important; }
+</style>
+<script src="../node_modules/jszip/dist/jszip.min.js"></script>
+<script src="../node_modules/docx-preview/dist/docx-preview.min.js"></script>
+<div id="out"></div>
+<script>
+window.cvDocx = {
+  // base64: the .docx; faces: [{family, weight, style, base64}]. -> {sections, width, height} (CSS lengths of the first section's page)
+  async render(base64, faces) {
+    for (const f of faces) document.fonts.add(await new FontFace(f.family, `url(data:font/ttf;base64,${f.base64})`, {weight: String(f.weight), style: f.style}).load());
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0)), out = document.getElementById('out');
+    out.innerHTML = '';
+    await docx.renderAsync(bytes, out, null, {inWrapper: true, breakPages: true, renderHeaders: true, renderFooters: true, experimental: true, useBase64URL: true});
+    await document.fonts.ready;
+    const sections = [...out.querySelectorAll('section.docx')], first = sections[0], cs = getComputedStyle(first);
+    // Word's margins on every printed page: the page box takes them, the section's own padding goes; on screen the text keeps the printed
+    // width, so docx-preview's tab stops (set by its own timer, 500 ms after drawing) are measured on the lines that get printed.
+    const page = document.createElement('style');
+    page.textContent = `@page { size: ${first.style.width} ${first.style.minHeight}; margin: ${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}; }
+      .docx-wrapper > section.docx { padding: 0 !important; width: calc(${first.style.width} - ${cs.paddingLeft} - ${cs.paddingRight}) !important; min-height: 0 !important; }
+      .docx-wrapper > section.docx:not(:last-child) { break-after: page; }`;
+    document.head.append(page);
+    await letterSpacing(bytes, out);
+    wordLines(out);
+    await new Promise(resolve => setTimeout(resolve, 700));
+    return {sections: sections.length, width: first.style.width, height: first.style.minHeight};
+  },
+};
+
+// A run's own letter spacing (w:spacing in its w:rPr, in twentieths of a point; condensed text is common in CVs), which docx-preview
+// leaves out: each run's text is matched, in order, to the span docx-preview drew for it.
+async function letterSpacing(bytes, root) {
+  const xml = await (await JSZip.loadAsync(bytes)).file('word/document.xml').async('string');
+  const decode = s => new DOMParser().parseFromString(`<x>${s}</x>`, 'text/xml').documentElement.textContent;
+  const runs = [];
+  for (const [run] of xml.matchAll(/<w:r[ >][\s\S]*?<\/w:r>/g)) {
+    const text = [...run.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map(t => decode(t[1])).join('');
+    if (text) runs.push({text, twips: Number(run.match(/<w:rPr>(?:(?!<\/w:rPr>)[\s\S])*?<w:spacing w:val="(-?\d+)"/)?.[1] || 0)});
+  }
+  if (!runs.some(r => r.twips)) return;
+  let next = 0;
+  for (const span of root.querySelectorAll('section.docx article span')) {
+    const own = [...span.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('');
+    if (!own) continue;
+    const k = runs.slice(next, next + 6).findIndex(r => r.text === own);
+    if (k < 0) continue;
+    next += k + 1;
+    if (runs[next - 1].twips) span.style.letterSpacing = `${runs[next - 1].twips / 20}pt`;
+  }
+}
+
+// Word's "multiple" line spacing (1.08 and the like) multiplies the font's own line height; CSS multiplies the font size, and the paragraph
+// keeps the browser's 16px for its empty line. Each text run gets factor × its font's natural height, the paragraph's own line none.
+function wordLines(root) {
+  const natural = new Map();
+  const ratio = cs => {
+    const key = `${cs.fontFamily}|${cs.fontWeight}|${cs.fontStyle}`;
+    if (!natural.has(key)) {
+      const probe = Object.assign(document.createElement('span'), {textContent: 'Hg'});
+      probe.style.cssText = `font: ${cs.fontStyle} ${cs.fontWeight} 100px/normal ${cs.fontFamily}; position: absolute; visibility: hidden; white-space: nowrap`;
+      document.body.append(probe); natural.set(key, probe.getBoundingClientRect().height / 100); probe.remove();
+    }
+    return natural.get(key);
+  };
+  const texts = p => [...p.querySelectorAll('span')].filter(s => [...s.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
+  const sizes = [...root.querySelectorAll('section.docx p')].flatMap(p => texts(p).map(s => parseFloat(getComputedStyle(s).fontSize)));
+  const usual = sizes.sort((a, b) => sizes.filter(x => x === b).length - sizes.filter(x => x === a).length)[0] || 14;
+  for (const p of root.querySelectorAll('section.docx p')) {
+    // No spacing in the file (CSS "normal") is Word's single spacing: factor 1.
+    const was = p.style.fontSize, at = px => { p.style.fontSize = `${px}px`; const lh = getComputedStyle(p).lineHeight; return lh === 'normal' ? px : parseFloat(lh); };
+    const factor = at(100) / 100, scales = Math.abs(at(200) - 2 * at(100)) < 1;
+    p.style.fontSize = was;
+    if (!scales || !(factor > 0)) continue;   // an exact or "at least" spacing: docx-preview set it in points already
+    const runs = texts(p);
+    if (!runs.length) { p.style.fontSize = `${usual}px`; p.style.lineHeight = `${factor * ratio(getComputedStyle(p)) * usual}px`; continue; }
+    for (const s of runs) { const c = getComputedStyle(s); s.style.lineHeight = `${factor * ratio(c) * parseFloat(c.fontSize)}px`; }
+    p.style.lineHeight = '0';
+  }
+}
+window.cvDocxReady = true;
+</script>
