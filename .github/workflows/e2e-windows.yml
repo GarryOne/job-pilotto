@@ -111,18 +111,13 @@ jobs:
     needs: plan
     if: needs.plan.outputs.count != '0'
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 225   # + the wait for the suite's lock (up to 3 h)
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     defaults:
       run:
         shell: bash   # the suites' commands use bash syntax; pwsh would mangle quoting
-    concurrency:
-      # The suite owns one Notion page: never together with the same suite on the Mac (e2e.yml uses the same group). A NEW pending job cancels an
-      # older pending one in the group, so start a by-hand Windows run only when no e2e.yml job of that suite is still queued.
-      group: e2e-${{ matrix.key }}
-      cancel-in-progress: false
     env:
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_OPENAI_KEY: ${{ secrets.E2E_OPENAI_KEY }}   # the OpenAI family's turn (odd runs; desktop/e2e/lib/engine.mjs pickFamily)
@@ -153,10 +148,18 @@ jobs:
       E2E_JUDGE_MODEL: ${{ matrix.suite == 'quality' && 'claude-sonnet-5-5' || 'claude-haiku-5-5' }}
       E2E_BLOB_DIR: ${{ github.workspace }}/blob-report   # the suite's part of the run's HTML report (the report job merges them)
       E2E_RUN_KIND: ${{ inputs.tag && 'gate' || '' }}   # how an issue names the run (lib/replay.mjs), as e2e.yml
+    permissions:
+      contents: write   # tools/e2e-lock.sh creates the lock ref
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.sha || github.sha }}   # the commit the Mac run tested
+      # Waits for the suite's lock instead of queueing in a concurrency group (GitHub keeps ONE waiting job per group and cancels the older one: beta 14, 24 Oct 2026).
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: lock-tools
+          sparse-checkout: tools/e2e-lock.sh
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -188,6 +191,11 @@ jobs:
           path: desktop/e2e/.ai-cache
           key: ai-answers-windows-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ai-answers-windows-${{ matrix.key }}-
+      # The lock is taken as late as possible (after the installs, which never touch the suite's Notion page): a waiting job holds its runner.
+      - name: Take the suite's lock (it owns one Notion page; waits, never dropped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash lock-tools/tools/e2e-lock.sh acquire "${{ matrix.key }}"
       - name: Run the ${{ matrix.suite }} suite on Windows
         working-directory: desktop/e2e
         timeout-minutes: 15   # the suite stops itself at its budget (7 min, recorded 11), and by force 3 min later (suite.mjs)
@@ -278,9 +286,15 @@ jobs:
           name: e2e-artifacts-windows-${{ matrix.key }}
           path: e2e-artifacts-windows/${{ matrix.key }}
           if-no-files-found: ignore
+      - name: Give the suite's lock back
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash lock-tools/tools/e2e-lock.sh release "${{ matrix.key }}"
 
   # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report
   # (uncompressed: the owner's site serves its files straight from the artifact, admin/e2e-report.js) and linked on the run's Summary page.
+
   report:
     name: Windows HTML report
     needs: [plan, suite]

@@ -135,12 +135,12 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn('needs: [changes, windows, ai-ready]', job('test-windows'))
         self.assertIn('fromJson(needs.changes.outputs.mac_matrix)', job('test-mac'))
         self.assertIn('fromJson(needs.changes.outputs.windows_matrix)', job('test-windows'))
-        # A suite's Mac job and its Windows job share ONE concurrency group (the same real Notion page), and GitHub keeps one WAITING job per group: more than two contenders
-        # cancel each other (10 Oct 2026: 15 of 41 Mac gate jobs cancelled), a group per leg let two run on the page together (wizard red). So the gate plans ONE Mac job per suite.
-        # The group is the job's key: the suite itself, or one slice of a sharded suite (recorded-2of4, 13 Oct 2026), the same key on both lanes. GATE_STORE_LEGS=one keeps
-        # a -standin key out of it, so the group still has exactly the two contenders.
-        self.assertIn('group: e2e-${{ matrix.key }}', job('test-mac'))
-        self.assertIn('group: e2e-${{ matrix.key }}', job('test-windows'))
+        # A suite's Mac job and its Windows job share ONE Notion page, so they take the same lock (tools/e2e-lock.sh, key = the job's key) and WAIT for it. A concurrency group
+        # kept one waiting job and cancelled the older (beta 14, 24 Oct 2026: 12 jobs of a by-hand beta cancelled by other runs' jobs); tests/test_e2e_lock.py guards all four jobs.
+        # The key is the suite itself, or one slice of a sharded suite (recorded-2of4, 13 Oct 2026), the same key on both lanes. GATE_STORE_LEGS=one keeps a -standin key out of it.
+        for lane in ('test-mac', 'test-windows'):
+            self.assertIn('tools/e2e-lock.sh acquire "${{ matrix.key }}"', job(lane))
+            self.assertNotIn('group: e2e-', job(lane))
         self.assertIn('GATE_STORE_LEGS: one', job('changes'))
         for e2e in ('test-mac', 'test-windows'):   # the gate's settings: the fixed path
             self.assertIn("E2E_SEED: '0'", job(e2e))
