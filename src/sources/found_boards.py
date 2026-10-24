@@ -115,6 +115,15 @@ def _read(board, search, fetch, route, early, show=None):
     return jobs, state, None
 
 
+def _retry_when_unjudged(entry, relevant):
+    """The other ways found nothing relevant while the refresh's time for sorting titles was spent: the titles were not judged, not rejected (24 Oct 2026:
+    a Moldovan board's IT field was read at 163 s, "Time is up for this refresh: 10 title(s) left", 0 relevant, and the board was not looked at again
+    for that link). The board is tried again next refresh; the pages it read are kept (page_reads), so that costs no model."""
+    from .. import time_budget
+    if not relevant and time_budget.over('titles'):
+        entry.pop('form_for', None)
+
+
 def _own_country(board):
     """The one country a general job board was proposed for, as the place of its jobs that name none (24 Oct 2026: the AI page reader read a Moldovan
     board's IT field as 8 jobs with no place, and every one failed the place check). A sector or remote board lists jobs from anywhere: no place."""
@@ -370,6 +379,7 @@ def read(search, boards=None, fetch=None, now=None, is_relevant=None, dead=None,
             return
         if not (early or relevant or route) and state != 'browser' and entry.get('form_for') != proposed:   # once per proposed link
             found, state, relevant = _another_way(board, entry, proposed, search, fetch, judge, (found, state, relevant), show=show)
+            _retry_when_unjudged(entry, relevant)
         entry.update({'last_read': stamp, 'countries': board.get('countries') or [], 'kinds': board.get('kinds') or [],
                       'source_kind': board.get('source_kind') or 'general'})
         board_yield.record(entry, len(found), len(relevant), state)
