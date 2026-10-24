@@ -5,6 +5,8 @@ reports/
 *.sqlite
 .venv
 *.pdf
+# Made-up look-alike CVs the in-place Tailor CV tests read (desktop/test/cv-inplace*.test.js); never a real person's CV.
+!desktop/test/fixtures/cv-shapes/*.pdf
 .DS_Store
 .wrangler/
 # The shared Google app client: added at build time from the GOOGLE_SHARED_CLIENT_JSON secret.
