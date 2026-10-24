@@ -17,6 +17,8 @@ SCORE_FIRST = False
 SCORE_OWN = 180   # seconds scoring gets of its own once placing and sorting are done (score_own)
 FLOOR = 3     # the first jobs of a search are scored whatever the clock says (owner, 18 Oct 2026: "Yes, always 3"): a new user sees fits in press 1
 _scored = [0]  # scores started in this search (may_score)
+LOCAL_TITLES = 90   # titles in the user's own places sorted whatever the clock says, like FLOOR for scores (local_titles)
+_local = [0]
 _lock = threading.Lock()
 
 
@@ -28,11 +30,22 @@ def start(seconds, now=None):
         budget_tape.new_search()
     score_first(False)
     _scored[0] = 0   # a new search: its first FLOOR scores start again whatever the clock
+    _local[0] = 0
 
 
 def floor_left():
     """Scores this search still starts whatever the clock says (FLOOR minus those already started)."""
     return max(0, FLOOR - _scored[0])
+
+
+def local_titles(wanted):
+    """How many of `wanted` titles located in the user's own places are sorted whatever the clock says (and counted): the search's first
+    LOCAL_TITLES. 24 Oct 2026, Chisinau: ~750 worldwide-remote titles spent the 3 minutes, and a Moldovan board's titles (the only local jobs)
+    were left "for the next refresh" at 158 s."""
+    with _lock:
+        n = max(0, min(wanted, LOCAL_TITLES - _local[0]))
+        _local[0] += n
+        return n
 
 
 def may_score(now=None):
