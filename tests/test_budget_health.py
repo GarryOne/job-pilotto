@@ -85,12 +85,12 @@ class BudgetTests(unittest.TestCase):
 
 class HealthTests(unittest.TestCase):
     def test_google_expired_and_expiring(self):
-        expired = mock.Mock(profile=mock.Mock(side_effect=RuntimeError('Google token refresh failed (400): invalid_grant')))
+        expired = mock.Mock(scopes=None, profile=mock.Mock(side_effect=RuntimeError('Google token refresh failed (400): invalid_grant')))
         with mock.patch('src.sources.google.Google.from_env', return_value=expired):
             check = doctor.check_google(NOW)
         self.assertEqual((check.state, check.detail), (doctor.FAIL, 'sign-in expired or revoked'))
         self.assertIn('--client-json', check.fix)
-        ok = mock.Mock(profile=mock.Mock(return_value={'emailAddress': 'me@gmail.com'}))
+        ok = mock.Mock(scopes=None, profile=mock.Mock(return_value={'emailAddress': 'me@gmail.com'}))
         with mock.patch('src.sources.google.Google.from_env', return_value=ok), \
                 mock.patch.dict('os.environ', {'JOB_PILOTTO_GOOGLE_AUTH_AT': '2026-09-22T12:00:00+00:00'}):
             check = doctor.check_google(NOW)

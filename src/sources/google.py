@@ -72,6 +72,8 @@ def credentials():
 
 
 class Google:
+    scopes = None   # the parts the user allowed; None = unknown, all assumed (an object made without __init__, as some tests do)
+
     def __init__(self, client_id, client_secret, refresh_token, opener=urllib.request.urlopen, scopes=None):
         self.client_id, self.client_secret, self.refresh_token = client_id, client_secret, refresh_token
         self.opener, self._token = opener, None
