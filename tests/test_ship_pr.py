@@ -137,6 +137,17 @@ class ShipPrTest(ShipFixture):
         self.assertIn('My change', git(self.origin, 'log', '--format=%s', 'main'), 'the commit subject itself stays as written')
         self.assertNotIn('[9f]', git(self.origin, 'log', '--format=%s', 'main'))
 
+    def test_the_session_tag_is_the_names_last_part_in_every_name_shape(self):
+        # 24 Oct 2026: sessions became "jobadabra-xx" after the rename and #1772 read "[jobadabra-70] ..."; the title hooks use the last part too.
+        for n, name in enumerate(('job-pilotto-9f', 'jobadabra-9f', 'jobadabra-claude-x1b2-9f')):
+            with self.subTest(name):
+                self.change(self.tree, f'shape{n}.txt', 'y\n', f'Change {n}')
+                self.pr_ship(None, JOB_PILOTTO_SESSION=name)
+                self.assertIn(f'--title [9f] Change {n}', ' | '.join(self.calls()))
+                self.change(self.tree, f'shape{n}b.txt', 'z\n', f'More {n}')
+                self.pr_ship({'state': 'OPEN', 'head': 'topic', 'title': f'Hand made {n}'}, JOB_PILOTTO_SESSION=name)
+                self.assertIn(f'pr edit 1 --title [9f] Hand made {n}', ' | '.join(self.calls()))
+
     def test_a_pr_landing_of_slow_gate_files_takes_no_landing_queue(self):
         # Owner, 12 Oct 2026: "Everybody can open PR at any time". The PR's required checks guard main, so a local queue only made PRs wait for each other.
         (self.tree / 'desktop' / 'lib').mkdir(parents=True)
