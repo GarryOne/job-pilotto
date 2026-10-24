@@ -536,9 +536,18 @@ jobs:
           key: ai-answers-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ai-answers-${{ matrix.key }}-
       # The lock is taken as late as possible (after the installs, which never touch the suite's Notion page): a waiting job holds its runner.
+      - name: The App token for the lock (a re-run attempt's workflow token cannot create refs)
+        id: lock_app
+        continue-on-error: true   # a failed mint falls back to the workflow token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
       - name: Take the suite's lock (it owns one Notion page; waits, never dropped)
         env:
           GH_TOKEN: ${{ github.token }}
+          E2E_LOCK_TOKEN: ${{ steps.lock_app.outputs.token }}
         run: bash lock-tools/tools/e2e-lock.sh acquire "${{ matrix.key }}"
       - name: Run the ${{ matrix.suite }} suite
         id: suite_run
@@ -659,10 +668,20 @@ jobs:
           name: e2e-artifacts-${{ matrix.key }}
           path: e2e-artifacts/${{ matrix.key }}
           if-no-files-found: ignore
+      - name: The App token to give the lock back (the first one may have expired)
+        id: lock_app_end
+        if: always()
+        continue-on-error: true   # a failed mint falls back to the workflow token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
       - name: Give the suite's lock back
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          E2E_LOCK_TOKEN: ${{ steps.lock_app_end.outputs.token }}
         run: bash lock-tools/tools/e2e-lock.sh release "${{ matrix.key }}"
 
   # The Windows lane's E2E box: e2e-windows.yml's suite job with the gate's settings, the same suites as the Mac lane (planned once, in Anything new?).
@@ -751,9 +770,18 @@ jobs:
           key: ai-answers-windows-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ai-answers-windows-${{ matrix.key }}-
       # The lock is taken as late as possible (after the installs, which never touch the suite's Notion page): a waiting job holds its runner.
+      - name: The App token for the lock (a re-run attempt's workflow token cannot create refs)
+        id: lock_app
+        continue-on-error: true   # a failed mint falls back to the workflow token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
       - name: Take the suite's lock (it owns one Notion page; waits, never dropped)
         env:
           GH_TOKEN: ${{ github.token }}
+          E2E_LOCK_TOKEN: ${{ steps.lock_app.outputs.token }}
         run: bash lock-tools/tools/e2e-lock.sh acquire "${{ matrix.key }}"
       - name: Run the ${{ matrix.suite }} suite on Windows
         working-directory: desktop/e2e
@@ -845,10 +873,20 @@ jobs:
           name: e2e-artifacts-windows-${{ matrix.key }}
           path: e2e-artifacts-windows/${{ matrix.key }}
           if-no-files-found: ignore
+      - name: The App token to give the lock back (the first one may have expired)
+        id: lock_app_end
+        if: always()
+        continue-on-error: true   # a failed mint falls back to the workflow token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
       - name: Give the suite's lock back
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          E2E_LOCK_TOKEN: ${{ steps.lock_app_end.outputs.token }}
         run: bash lock-tools/tools/e2e-lock.sh release "${{ matrix.key }}"
 
   # RELEASE: the lane's HTML report (always), then, only when every E2E suite of the lane passed: no real high-severity finding, the shared release checks, and the

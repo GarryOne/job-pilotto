@@ -3,8 +3,12 @@
 # Why not a `concurrency:` group: GitHub keeps ONE waiting job per group and a newer one cancels the older (beta 14, 24 Oct 2026: 12 jobs cancelled by other runs' jobs).
 # The lock is the git ref refs/e2e-locks/<key>, created atomically; its commit message names the holder. A lock whose run has finished is taken over.
 # Usage: e2e-lock.sh acquire <key> | e2e-lock.sh release <key>   (needs GH_TOKEN with contents: write, GITHUB_REPOSITORY, GITHUB_RUN_ID, GITHUB_JOB, GITHUB_SHA)
+# E2E_LOCK_TOKEN (the CI App's token, minted by the job) is used instead of GH_TOKEN when set: a RE-RUN attempt's workflow token cannot create refs (beta 17, 24 Oct 2026:
+# 403 "Resource not accessible by integration" on the re-run of a job that took its lock on attempt 1). If creating the lock is still refused that way, the job runs WITHOUT the lock
+# and says so in the run summary, never red for it.
 # Tests: tests/test_e2e_lock.py
 set -uo pipefail
+[ -n "${E2E_LOCK_TOKEN:-}" ] && export GH_TOKEN="$E2E_LOCK_TOKEN"
 
 cmd="${1:?acquire|release}"; key="${2:?suite key}"
 repo="${GITHUB_REPOSITORY:?}"; ref="e2e-locks/${key}"
@@ -26,7 +30,14 @@ acquire() {
     held="$(holder_sha)"
     if [ -z "$held" ]; then   # nobody holds it, yet creating it failed: that is an error to read, not a lock to wait for (beta 16, 24 Oct 2026)
       fails=$((fails + 1)); echo "e2e-lock: could not create refs/${ref} (try ${fails}): ${made}" >&2
-      if [ "$fails" -ge 3 ]; then exit 1; fi
+      if [ "$fails" -ge 3 ]; then
+        if printf '%s' "$made" | grep -q 'Resource not accessible by integration'; then
+          echo "e2e-lock: WARNING: the token may not create refs on this attempt (run attempt ${GITHUB_RUN_ATTEMPT:-?}); ${key} runs WITHOUT its lock" >&2
+          [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "⚠️ ${key}: ran without the suite lock (the token cannot create refs on this attempt: ${me})" >> "$GITHUB_STEP_SUMMARY"
+          return 0
+        fi
+        exit 1
+      fi
       sleep "$poll"; continue
     fi
     msg="$(holder_msg "$held")"; run="$(printf '%s' "$msg" | sed -n 's/^run=\([0-9]*\).*/\1/p' | head -n1)"
