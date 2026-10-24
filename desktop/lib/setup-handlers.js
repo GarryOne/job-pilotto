@@ -21,9 +21,10 @@ import {registerNotifyHandlers} from './notify-handlers.js';   // Settings → A
 import {CV_FILES} from '../renderer/cv-files.js';
 import {officeAddon} from './office-addon.js';   // LibreOffice for a Word CV, downloaded on use
 import {registerOfficeHandlers} from './office-handlers.js';
+import {isDocx, setDocxCv} from './cv-docx.js';
 
 export function registerSetupHandlers(ctx) {
-  const {DEMO, connectNotion, dialog, handleImportant, ipcMain, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom, keepLook, toWindow} = ctx;
+  const {DEMO, connectNotion, dialog, handleImportant, ipcMain, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom, keepLook, renderDocx, toWindow} = ctx;
   registerNotifyHandlers({ipcMain, storage, DEMO, log: appLog});
   const office = officeAddon(storage, {toWindow, toast: body => toWindow('toast', body)});
   registerOfficeHandlers({ipcMain, addon: office, DEMO});
@@ -118,8 +119,10 @@ export function registerSetupHandlers(ctx) {
     const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose your CV', filters: [{name: CV_FILES.label, extensions: CV_FILES.extensions}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return null;
     // The file is set at once; the CV is read into cv.json in the background (lib/cv-import-at-upload.js), once per file.
-    const {name} = atUpload.setCv(storage, picked.filePaths[0], path.basename(picked.filePaths[0]),
+    // A Word CV is kept as cv.docx and drawn to cv.pdf first, LibreOffice fetched on first use (lib/cv-docx.js).
+    const file = picked.filePaths[0], setCv = (from, as) => atUpload.setCv(storage, from, as,
       {client: claudeCode.client(storage), key: storage.secret('ANTHROPIC_API_KEY'), look: keepLook, toast: body => toWindow('toast', body)});
+    const {name} = isDocx(file) ? await setDocxCv(storage, file, path.basename(file), {office, renderDocx, setCv}) : setCv(file, path.basename(file));
     syncCv();  // this version to the Profile in Notion too
     return name;
   });
