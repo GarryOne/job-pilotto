@@ -35,6 +35,7 @@ Why each rule exists: [why.md](why.md#change-loop).
 7. **Measure per source** (real / reconstructed / invented), never blended, never tune on invented data.
 
 ## Debugging a failing e2e step
+The whole loop, with the cause list and the CI by-hand proof (not a beta): skill **fix-failing-e2e**.
 - **Read before you re-run.** `desktop/e2e/artifacts/<suite>/suite-failures.json`, `artifacts/<suite>.run.log`, the screenshot, `logs/app.log`.
   A worktree's `artifacts/` goes with it: copy what you still need first. A failure that says only `""` or "not found" is missing evidence: add the
   capture or log line that would have answered it.
