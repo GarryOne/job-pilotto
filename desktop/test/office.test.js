@@ -29,9 +29,11 @@ test('a build for Mac (Apple silicon, Intel) and Windows (x64, ARM), each pinned
 });
 
 test('soffice: the app\'s own copy first, then one the person installed, else none', () => {
-  const have = new Set(['/data/office/LibreOffice.app/Contents/MacOS/soffice', '/Applications/LibreOffice.app/Contents/MacOS/soffice']);
-  assert.equal(findOffice('/data/office', {platform: 'darwin', exists: f => have.has(f)}), '/data/office/LibreOffice.app/Contents/MacOS/soffice');
-  have.delete('/data/office/LibreOffice.app/Contents/MacOS/soffice');
+  // Paths as path.join builds them on the computer running the test (backslashes on Windows CI).
+  const own = path.join('/data/office', 'LibreOffice.app', 'Contents', 'MacOS', 'soffice');
+  const have = new Set([own, '/Applications/LibreOffice.app/Contents/MacOS/soffice']);
+  assert.equal(findOffice('/data/office', {platform: 'darwin', exists: f => have.has(f)}), own);
+  have.delete(own);
   assert.equal(findOffice('/data/office', {platform: 'darwin', exists: f => have.has(f)}), '/Applications/LibreOffice.app/Contents/MacOS/soffice');
   const win = path.join('C:\\Program Files', 'LibreOffice', 'program', 'soffice.exe');
   assert.equal(findOffice('/data/office', {platform: 'win32', env: {ProgramFiles: 'C:\\Program Files'}, exists: f => f === win}), win);
