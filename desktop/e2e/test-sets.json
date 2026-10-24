@@ -139,6 +139,7 @@
   "old-extension.test.mjs",
   "older-tree.test.mjs",
   "on-top.test.mjs",
+  "open-run-waits-for-log.test.mjs",
   "open-shim.test.mjs",
   "own-asks.test.mjs",
   "own-ui-not-read.test.mjs",
