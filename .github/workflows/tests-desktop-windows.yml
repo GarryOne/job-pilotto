@@ -33,6 +33,7 @@ on:
       - 'desktop/lib/kill-tree.js'
       - 'desktop/lib/main-window.js'
       - 'desktop/lib/orphans.js'
+      - 'desktop/lib/pdf-edit/fonts.js'
       - 'desktop/lib/pipeline-env.js'
       - 'desktop/lib/pipeline-run.js'
       - 'desktop/lib/reports.js'
