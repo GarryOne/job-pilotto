@@ -16,12 +16,11 @@ Why this exists (24 Oct 2026): in beta runs 5-11 about 8 of ~10 e2e fixes were t
    - **Flake**: red, then green on the same code. Name the timing assumption and make it a ratio or a wait on a state, not a longer sleep.
 3. **List the siblings.** `node desktop/e2e/pr-suites.mjs --base origin/main` names every suite that quotes the text you changed; fix them in the same change (a suite stops at its first red step, so the next layer is likely there).
 4. **Prove the step alone, in seconds:** `cd desktop/e2e && E2E_STEPS="<step>,<its prerequisites>" node run-all.mjs --only <suite>`. Prove the repro first (your setup took effect).
-5. **Then the whole fixed suite plus the siblings, on CI by hand, not in a beta:**
-   `gh workflow run e2e.yml --ref <your branch> -f suite=<suite>,<sibling>`. Linux suites only; a Mac suite (`runnerOf`) waits for the gate. Monitor the run; do not start a beta to check a test fix.
-6. **Ship** with `tools/ship.sh --background [--title="<the whole PR>" if 2+ commits]`. The PR's own "E2E suites for a PR" run (pr-suites.yml) repeats step 5 for the suites its files point at.
+5. **Then the whole fixed suite plus the siblings, on CI, from your PR:** the PR's own "E2E suites for a PR" run (`pr-suites.yml`, report only) starts the Linux suites your changed files and removed UI text point at, on your branch. Open the PR early and read that run; do not start a beta to check a test fix. A by-hand `gh workflow run e2e.yml -f suite=...` is against `docs/rules/change-loop.md` rule 7 unless the owner asks for it. A Mac suite waits for the gate.
+6. **Ship** with `tools/ship.sh --background [--title="<the whole PR>" if 2+ commits]`. The PR is what starts the suites of step 5.
 
 ## Never
-- Re-run the full `run-all` or a beta to look at a failure.
+- Re-run the full `run-all` or a beta to look at a failure, or start `e2e.yml` by hand without the owner asking.
 - Change a test's expectation to match a wrong product.
 - Raise a time budget without a measured reason (applyflows: split it, do not stretch it).
 - Touch the beta workflow while another session owns it; ask them.
