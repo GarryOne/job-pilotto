@@ -81,7 +81,7 @@ jobs:
         with: {runtime: python, mode: both}
       - name: Every job board Common Crawl has seen (once per new crawl)
         continue-on-error: true   # the archive being slow must never cost the day's index
-        timeout-minutes: 3   # 21 Oct 2026: its index answered 504 to every query and the retries took 27 min, twice; the crawl is only marked read when every query answers
+        timeout-minutes: 6   # 24 Oct 2026: 6 of the job's 30 minutes (was 3; its listings are saved one by one, so a slow archive costs nothing already read). 21 Oct 2026: its index answered 504 to every query and the retries took 27 min, twice; the crawl is only marked read when every query answers
         run: python ops/discovery/commoncrawl.py --db data/jobs.sqlite
       - name: Rank the queue by each source's measured yield
         run: python ops/discovery/priorities.py --db data/jobs.sqlite
