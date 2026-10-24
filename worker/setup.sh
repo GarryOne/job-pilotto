@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-REPO=GarryOne/job-pilotto
+REPO=GarryOne/jobadabra
 WRANGLER="npx --yes wrangler@4"
 
 TG_TOKEN="$(security find-generic-password -a "$USER" -s job-pilotto.telegram.bot-token -w)"
@@ -23,7 +23,7 @@ ask() {  # ask <keychain service> <prompt>: reuse the Keychain value or prompt o
 }
 
 NOTION_TOKEN="$(ask job-pilotto.notion.token 'Notion integration token (ntn_...)')"
-GITHUB_TOKEN="$(ask job-pilotto.github.dispatch-token 'GitHub fine-grained token with Actions read/write on GarryOne/job-pilotto')"
+GITHUB_TOKEN="$(ask job-pilotto.github.dispatch-token 'GitHub fine-grained token with Actions read/write on GarryOne/jobadabra')"
 WEBHOOK_SECRET="$(keychain job-pilotto.telegram.webhook-secret)"
 if [ -z "$WEBHOOK_SECRET" ]; then
   WEBHOOK_SECRET="$(openssl rand -hex 32)"

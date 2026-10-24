@@ -7,7 +7,7 @@
 # finding (severity.mjs); the labels the stats read (confirmed, wontfix-auto, harness, needs-human, resolution:<why>, lib/resolution.mjs); closing a false positive, a harness
 # finding or a fixed one. Guarded by desktop/e2e/test/apply-verdict.test.mjs.
 set -euo pipefail
-NUMBER="$1"; FILE="$2"; REPO="${3:-${REPO:-GarryOne/job-pilotto}}"
+NUMBER="$1"; FILE="$2"; REPO="${3:-${REPO:-GarryOne/jobadabra}}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 case "$FILE" in /*) ;; *) FILE="$PWD/$FILE" ;; esac
 cd "$HERE/../.."

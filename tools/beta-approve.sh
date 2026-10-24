@@ -6,7 +6,7 @@
 #   tools/beta-approve.sh --windows desktop-v0.5.3   Windows: unit suites + every Windows end-to-end suite (e2e-windows.yml approve-windows). Each platform
 #   reads only its own line (desktop/lib/updater.js approvedFor; one release, one version, neither platform waits for the other; owner, 6 Oct 2026).
 set -euo pipefail
-repo=GarryOne/job-pilotto
+repo=GarryOne/jobadabra
 windows=''; if [ "${1:-}" = --windows ]; then windows=1; shift; fi
 tag=${1:?usage: tools/beta-approve.sh [--windows] <tag>}
 marker='Beta-approved:'; [ -n "$windows" ] && marker='Beta-approved (Windows):'

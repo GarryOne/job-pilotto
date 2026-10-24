@@ -32,7 +32,7 @@ printf 'Preparing %d kit(s), ~USD %d.%02d:\n' "${#urls[@]}" $((cents / 100)) $((
 for url in "${urls[@]}"; do
   echo "  $url"
   [ "${2:-}" = "--dry-run" ] && continue
-  gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=prepare -f job="$url"
+  gh workflow run daily.yml -R GarryOne/jobadabra -f mode=prepare -f job="$url"
   sleep 2
 done
 [ "${2:-}" = "--dry-run" ] || echo "Started. Kits appear on the Notion rows in 1–2 min; then: tools/apply-batch-claude.sh --max ${#urls[@]}"

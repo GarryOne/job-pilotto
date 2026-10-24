@@ -105,7 +105,7 @@ ${links}
 <body class="design-page">
 <header class="dp-bar">
   <div class="dp-brand"><b>Job Pilotto</b><span>Design system</span></div>
-  <span class="dp-source">source commit <a href="https://github.com/GarryOne/job-pilotto/commit/${esc(commit)}" rel="noreferrer">${esc(commit.slice(0, 7))}</a> · generated ${esc(date)}</span>
+  <span class="dp-source">source commit <a href="https://github.com/GarryOne/jobadabra/commit/${esc(commit)}" rel="noreferrer">${esc(commit.slice(0, 7))}</a> · generated ${esc(date)}</span>
   <div class="dp-key"><span title="the pattern to use"><i class="dp-dot approved"></i>approved</span><span title="still in the app: don't copy it"><i class="dp-dot legacy"></i>legacy</span><span title="a design not approved yet"><i class="dp-dot proposed"></i>proposed</span></div>
   <a class="dp-download" href="${BASE}snapshot.zip" download title="Rules, tokens, components and reference shots, for Claude or ChatGPT">⬇ Snapshot for AI</a>
 </header>
@@ -137,7 +137,7 @@ function snapshot({commit, date, files}) {
   const components = `# Components (${date}, commit ${commit.slice(0, 7)})\n\nEach line: gallery section, status, what it is. Source: desktop/renderer/gallery.js drawn by components.js, card-shell.js, save-bar.js. Statuses: approved = use it; legacy = still in the app, do not copy; proposed = not yet approved.\n\n`
     + sectionsList.map(item => `- **${item.title}** [${status[item.title] || 'approved'}]: ${item.note}`).join('\n') + '\n';
   const readme = `# Job Pilotto design system snapshot\n\nA read-only snapshot for an AI assistant (Claude, ChatGPT or any other). Generated from the repository at commit ${commit} on ${date}; the live page is ${BASE} on the admin site.\nIt is not a second source: the repository is. If this snapshot and the repository disagree, the repository wins.\n\n## Read in this order\n1. RULES.md: the written design rules. Headings tagged [approved], [legacy] or [proposed]; follow approved, never copy legacy, treat proposed as a draft.\n2. SKILL-ui-look-and-feel.md: the look and feel guide (which control for which kind of value).\n3. tokens.css and tokens.json: every colour, size, radius and shadow (light and dark). Use var(--name); never a raw value.\n4. components.md: the shared components and their status.\n5. shots/: reference screenshots of the real screens.\n\n## Rules of thumb\n- Build from the shared components and tokens. Do not invent a new style.\n- One primary (orange) button per card or screen. Cards read first, Edit opens an editor, one page save bar saves.\n- Use only fictional data in examples.\n`;
-  const source = `commit: ${commit}\ngenerated: ${date}\nbuilt by: tools/design-system/build.mjs\nrepository: https://github.com/GarryOne/job-pilotto\n`;
+  const source = `commit: ${commit}\ngenerated: ${date}\nbuilt by: tools/design-system/build.mjs\nrepository: https://github.com/GarryOne/jobadabra\n`;
   return zip([
     {name: 'README.md', data: readme}, {name: 'RULES.md', data: read('docs/rules/desktop-ui.md')},
     {name: 'SKILL-ui-look-and-feel.md', data: read('.claude/skills/ui-look-and-feel/SKILL.md')},

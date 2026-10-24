@@ -300,7 +300,7 @@ def main():
 
     print(f"\nQueued {len(pairs)} chat(s) in the ChatGPT/Codex app. For each: review, attach the "
           "résumé if it didn't, click Submit yourself, then run:\n"
-          "  gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied")
+          "  gh workflow run daily.yml -R GarryOne/jobadabra -f mode=apply -f job=<job URL> -f action=applied")
     checks = [(record, kit_data) for record, kit_data in pairs if kit_data.get('check_before_sending')]
     if checks and not args.dry_run:
         print('\nThings to double-check before you submit, one job at a time:')

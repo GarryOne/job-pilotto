@@ -1092,7 +1092,7 @@ sign up for an account on your behalf. A good agent will pause and ask for those
 want) one that pretends it can skip them. Paste this to get started:
 
 ```
-Clone https://github.com/GarryOne/job-pilotto (or my fork of it) into this directory. Read README.md,
+Clone https://github.com/GarryOne/jobadabra (or my fork of it) into this directory. Read README.md,
 docs/notion-schema.md, and AGENTS.md in full before doing anything else.
 
 Then help me set this up for myself, step by step:

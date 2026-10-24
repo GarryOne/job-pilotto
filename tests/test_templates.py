@@ -19,7 +19,7 @@ class TemplateTests(unittest.TestCase):
         for template in sorted(TEMPLATES.glob('*.yml')):
             with self.subTest(template.name):
                 text = template.read_text()
-                self.assertIn(f'uses: GarryOne/job-pilotto/.github/workflows/{template.name}@main', text)
+                self.assertIn(f'uses: GarryOne/jobadabra/.github/workflows/{template.name}@main', text)
                 self.assertIn('secrets: inherit', text)
                 self.assertNotIn('schedule:', text)  # the app adds the user's schedule
                 passed = set(re.findall(r'^      ([a-z_]+): ', text.split('    with:\n', 1)[1], re.M))

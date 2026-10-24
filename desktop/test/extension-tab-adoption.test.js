@@ -19,7 +19,7 @@ const application = id => Object.assign(store, {[`armed:${id}`]: true, [`session
 
 test('a tab the person opens from the application\'s tab is the person\'s: not armed, no session, no job', async () => {
   reset(); application(1);
-  assert.equal(await followOpener({id: 2, openerTabId: 1, url: 'https://github.com/GarryOne/job-pilotto/pull/620', pendingUrl: ''}), false);   // Chrome names tab 1 its opener; no press of ours
+  assert.equal(await followOpener({id: 2, openerTabId: 1, url: 'https://github.com/GarryOne/jobadabra/pull/620', pendingUrl: ''}), false);   // Chrome names tab 1 its opener; no press of ours
   assert.equal(store['armed:2'], undefined);
   assert.equal(store['session:2'], undefined);
   assert.equal(store['from:2'], undefined);

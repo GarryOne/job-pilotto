@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-export const REPO = 'GarryOne/job-pilotto';
+export const REPO = 'GarryOne/jobadabra';
 
 // "0.5.10" > "0.5.9"; the older suffixed builds still order: "0.4.0-alpha.41" > "0.4.0-alpha.9", and a plain version > its pre-releases.
 export function newer(a, b) {

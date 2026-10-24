@@ -4,7 +4,7 @@
 # Faster than tools/beta-release.sh, and unchecked: use it to get a fix to one person, then run the beta for everyone.
 #   tools/test-build.sh
 set -euo pipefail
-repo=GarryOne/job-pilotto
+repo=GarryOne/jobadabra
 gh workflow run desktop.yml -R "$repo" --ref main
 sleep 5
 gh run list -R "$repo" --workflow desktop.yml --event workflow_dispatch -L 3 --json databaseId,displayTitle,url \

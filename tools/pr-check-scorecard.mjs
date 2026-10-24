@@ -91,7 +91,7 @@ export function message(card) {
   return [`PR checks, last ${card.days} days`, ...rows, ...(review.length ? ['', ...review] : [])].join('\n');
 }
 
-const repo = process.env.GITHUB_REPOSITORY || process.env.REPO || 'GarryOne/job-pilotto';
+const repo = process.env.GITHUB_REPOSITORY || process.env.REPO || 'GarryOne/jobadabra';
 const gh = (...args) => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 1 << 28});
 
 // Everything the counting needs, from GitHub: PR runs of the window, the jobs of the red ones, and the changed files of each red→green sha pair.

@@ -65,7 +65,7 @@ EOF
     exit 0 ;;
 esac
 
-cd "$REPO" 2>/dev/null || skip "no checkout at $REPO" "clone GarryOne/job-pilotto to $REPO"
+cd "$REPO" 2>/dev/null || skip "no checkout at $REPO" "clone GarryOne/jobadabra to $REPO"
 gd="$(git rev-parse --git-dir 2>/dev/null)"
 for m in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD; do   # work in flight: never touch, always say
   [ -e "$gd/$m" ] && skip "a $m is in progress" "finish or abort it in $REPO (git rebase --abort / git merge --abort)"

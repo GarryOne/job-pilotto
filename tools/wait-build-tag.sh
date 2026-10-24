@@ -6,7 +6,7 @@
 #   SHIP_NO_WAIT=1            no wait at all (ship.sh)          SHIP_WAIT_FOR_BUILD=1   the old wait: for the whole build to end
 #   SHIP_WAIT_POLL=<s>        seconds between looks (default 30; the tests use 0.1)        SHIP_WAIT_MAX=<polls>   at most this many looks (default 40: 20 min)
 # Every wait is logged to <git common dir>/gate-timing.log (GATE_TIMING=0 off).
-repo="${SHIP_WAIT_REPO:-GarryOne/job-pilotto}"; poll="${SHIP_WAIT_POLL:-30}"; max="${SHIP_WAIT_MAX:-40}"; began=$SECONDS; waited=0; id=""; tagged=0
+repo="${SHIP_WAIT_REPO:-GarryOne/jobadabra}"; poll="${SHIP_WAIT_POLL:-30}"; max="${SHIP_WAIT_MAX:-40}"; began=$SECONDS; waited=0; id=""; tagged=0
 for _ in $(seq 1 "$max"); do
   id="$(gh run list -R "$repo" --workflow desktop.yml --status in_progress -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
   [ -z "$id" ] && break

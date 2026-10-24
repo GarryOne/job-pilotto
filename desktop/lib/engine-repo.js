@@ -12,7 +12,7 @@ export const setEngineRef = ref => { engineRef = ref || 'main'; };
 // The engine's repository, by the name the user's workflows call it. GitHub doesn't redirect a workflow's `uses:` after a repo
 // rename (proved on throwaway repos, 24 Oct 2026: "workflow was not found"), but its API does. So the app asks the API for the
 // engine's current name and writes that: a rename reaches every user's repo at the app's next check.
-export const ENGINE_REPO = 'GarryOne/job-pilotto';
+export const ENGINE_REPO = 'GarryOne/jobadabra';
 let engineRepo = ENGINE_REPO;
 export const currentEngineRepo = () => engineRepo;
 
@@ -27,7 +27,7 @@ export async function resolveEngineRepo(fetcher = globalThis.fetch) {
 }
 
 // A template as the user's repo gets it: the engine named as GitHub names it now, pinned to this app's release.
-const named = yaml => yaml.replace(/GarryOne\/job-pilotto(?=\/\.github\/workflows\/)/g, engineRepo)
-  .replace(/^(\s*code_repository:\s*)GarryOne\/job-pilotto(?![\w.-])/gm, `$1${engineRepo}`);
+const named = yaml => yaml.replace(/GarryOne\/(?:job-pilotto|jobadabra)(?=\/\.github\/workflows\/)/g, engineRepo)
+  .replace(/^(\s*code_repository:\s*)GarryOne\/(?:job-pilotto|jobadabra)(?![\w.-])/gm, `$1${engineRepo}`);
 export const pinned = yaml => (engineRef === 'main' ? named(yaml)
   : named(yaml).replace(/([\w.-]+\/[\w.-]+\/\.github\/workflows\/[\w.-]+\.yml)@main/g, `$1@${engineRef}`).replace(/code_ref: main\b/g, `code_ref: ${engineRef}`));
