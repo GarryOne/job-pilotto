@@ -1,20 +1,23 @@
 <!doctype html>
-<!-- Runs in a hidden window (lib/cv-look.js probe): reads a CV PDF with pdf.js, lists where its images and words sit (points, origin top left)
-     and cuts regions out of a sharp render of a page. Nothing here touches the network. -->
+<!-- Runs in a hidden window (lib/cv-look.js probe): reads a CV PDF with pdf.js, lists where its images and words sit (points, origin top left),
+     reads its text operators for the in-place edit (read) and cuts regions out of a sharp render of a page. Nothing here touches the network. -->
 <meta charset="utf-8">
 <script type="module">
 import * as pdfjs from '../node_modules/pdfjs-dist/build/pdf.mjs';
+import {readPdf} from '../lib/pdf-edit/read.js';
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('../node_modules/pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 
 const SCALE = 4;
-let doc = null;
+let doc = null, bytes = null;
 const renders = new Map();
 const mul = (a, b) => [a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3], a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3],
   a[4] * b[0] + a[5] * b[2] + b[4], a[4] * b[1] + a[5] * b[3] + b[5]];
 
 window.cvProbe = {
   async open(base64) {
-    doc = await pdfjs.getDocument({data: Uint8Array.from(atob(base64), c => c.charCodeAt(0))}).promise;
+    bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    renders.clear();
+    doc = await pdfjs.getDocument({data: bytes.slice()}).promise;
     return doc.numPages;
   },
   // Every page: its size, the images painted on it and the text items, in points from the top left.
@@ -96,6 +99,8 @@ window.cvProbe = {
     out.getContext('2d').drawImage(canvas, 0, 0, keep, canvas.height, 0, 0, keep, canvas.height);
     return {png: out.toDataURL('image/png').split(',')[1], width: keep, height: canvas.height};
   },
+  // Every text-show operator and small filled shape of every page, for editing the PDF in place (lib/pdf-edit/read.js, lib/cv-inplace.js).
+  async read() { return readPdf(pdfjs, bytes.slice()); },
   // The whole page as a PNG (for comparing a rebuilt CV with the original).
   async page(n, scale = 1) {
     const {png} = await this.crop(n, 0, 0, 10000, 10000);

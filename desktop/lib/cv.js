@@ -15,6 +15,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {isFormOf} from './apply.js';
 import {render} from '../cv/template.js';
+import {pagesDocument} from './cv-inplace-review.js';
 import {writePrivate} from './private-file.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override: the end-to-end journey (desktop/e2e)
@@ -116,20 +117,31 @@ the same pages: don't make the CV longer.
 changes: 3–8 short items for the candidate: where (e.g. "Summary", "Acme · Data Engineer"), what changed, and why
 (which part of the posting it answers).`;
 
-// The CV as the model sees it: bullets numbered per role.
-const numbered = cv => ({summary: cv.summary || '', jobs: cv.jobs.map(job => ({company: job.company, roles: job.roles.map(r => ({
-  title: r.title, period: r.period, ...(r.intro ? {intro: r.intro} : {}),
-  bullets: r.bullets.map((text, index) => ({index, text, ...(r.extra?.includes(index) ? {extra: true} : {})})), skills: r.skills || ''}))})),
+// When the tailored CV is the person's own PDF edited in place (lib/cv-inplace.js): each text is re-set on its own lines.
+const IN_PLACE_RULES = `
+This CV keeps its own design: each text is re-set on the lines it has now, so nothing can grow past them. Keep every bullet of
+every role (drop none; reorder and reword only). The summary and each bullet carry "max_chars": the new wording must not be longer.`;
+
+// The CV as the model sees it: bullets numbered per role. room (in place): the characters each text may take (cv-inplace roomOf);
+// the extra bullets are left out then, since the person's own page has no lines for them.
+const numbered = (cv, room = null) => ({summary: cv.summary || '', ...(room?.summary ? {summary_max_chars: room.summary} : {}),
+  jobs: cv.jobs.map((job, j) => ({company: job.company, roles: job.roles.map((r, ri) => ({
+    title: r.title, period: r.period, ...(r.intro ? {intro: r.intro} : {}),
+    bullets: r.bullets.map((text, index) => ({index, text, ...(r.extra?.includes(index) ? {extra: true} : {}),
+      ...(room?.jobs?.[j]?.[ri]?.[index] ? {max_chars: room.jobs[j][ri][index]} : {})}))
+      .filter(b => !(room && b.extra)),
+    skills: r.skills || ''}))})),
   ...(cv.skills ? {skills: cv.skills} : {}), ...(cv.extraSkills ? {extra_skills: cv.extraSkills} : {})});
 
 // base: the main CV with the experience bank's extra bullets (lib/experience.js withExtras); the main CV itself when none.
-export async function tailor(storage, posting, apiKey, {client = null, feedback = '', profile = '', base = null} = {}) {
+// room: set when the PDF will be edited in place (no drops, a length limit per text).
+export async function tailor(storage, posting, apiKey, {client = null, feedback = '', profile = '', base = null, room = null} = {}) {
   const cv = base || baseCv(storage);
   if (!cv) throw new Error('No base CV yet');
   const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
-    model: MODEL, max_tokens: 12000, system: TAILOR_INSTRUCTIONS,
-    messages: [{role: 'user', content: `<cv>\n${JSON.stringify(numbered(cv), null, 1)}\n</cv>\n\n<profile>\n${(profile || '').slice(0, 40000)}\n</profile>\n\n` +
+    model: MODEL, max_tokens: 12000, system: TAILOR_INSTRUCTIONS + (room ? IN_PLACE_RULES : ''),
+    messages: [{role: 'user', content: `<cv>\n${JSON.stringify(numbered(cv, room), null, 1)}\n</cv>\n\n<profile>\n${(profile || '').slice(0, 40000)}\n</profile>\n\n` +
       `<posting>\n${posting.title} at ${posting.company}${posting.location ? ` (${posting.location})` : ''}\n\n${(posting.description || '(no description stored: tailor to the title)').slice(0, 30000)}\n</posting>` +
       (feedback ? `\n\n<feedback>${feedback}</feedback>` : '')}],
     output_config: {format: {type: 'json_schema', schema: TAILOR_SCHEMA}},
@@ -264,6 +276,9 @@ const file = (storage, code, ext) => path.join(tailoredDir(storage), `${safeCode
 export const exists = (storage, code) => fs.existsSync(file(storage, code, 'pdf'));
 export const load = (storage, code) => { try { return JSON.parse(fs.readFileSync(file(storage, code, 'json'), 'utf8')); } catch { return null; } };
 export const pdfPath = (storage, code) => file(storage, code, 'pdf');
+// The pages of an in-place tailored CV as pictures, for its review (lib/cv-inplace-review.js).
+const pageFile = (storage, code, n) => file(storage, code, `p${n}.png`);
+export function savePages(storage, code, pngs) { pngs.forEach((png, i) => writePrivate(pageFile(storage, code, i + 1), Buffer.from(png, 'base64'))); }
 
 // The HTML for a CV (tailored, base or review), written next to the user's assets so images resolve.
 export function writeHtml(storage, cv, name, {review = false} = {}) {
@@ -323,7 +338,10 @@ export function reviewPage(storage, record) {
   if (record.result && base) try {
     marked = applyTailoring(base, record.result).review;  // the warnings stay those made at tailoring time (with the Profile)
   } catch {}
-  const cvHtml = render(marked, {style: style(storage), review: true, base: pathToFileURL(dir(storage) + path.sep).href});
+  // In place: the real tailored pages with the changed lines boxed; otherwise the template with its marks.
+  const pages = record.inPlace?.pages?.map((_, i) => pageFile(storage, record.job.code, i + 1));
+  const cvHtml = pages?.every(f => fs.existsSync(f)) ? pagesDocument(record, pages.map(f => pathToFileURL(f).href))
+    : render(marked, {style: style(storage), review: true, base: pathToFileURL(dir(storage) + path.sep).href});
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const changes = record.changes.map(c => `<li><b>${esc(c.where)}</b>: ${esc(c.change)}<div class="why">${esc(c.why)}</div></li>`).join('');
   const warningList = warnings.map(w => `<li>⚠️ ${esc(w)}</li>`).join('');

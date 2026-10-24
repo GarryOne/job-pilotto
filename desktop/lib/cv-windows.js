@@ -14,6 +14,16 @@ export function createCvWindows(ctx) {
     const probe = await cvLook.probeWindow(BrowserWindow, getStorage().path('cv.pdf'));
     try { return await cvLook.apply(cvlib.dir(getStorage()), cv, cvLook.plan(await probe.scan(), cv), probe); } finally { probe.close(); }
   }
+  // The CV PDF as lib/pdf-edit/read.js sees it, for the in-place tailored CV (lib/cv-inplace-run.js).
+  async function readCvPdf() {
+    const probe = await cvLook.probeWindow(BrowserWindow, getStorage().path('cv.pdf'));
+    try { return await probe.read(); } finally { probe.close(); }
+  }
+  // Each page of a PDF as a PNG (base64), for the review of an in-place tailored CV.
+  async function pageImages(pdfPath, count) {
+    const probe = await cvLook.probeWindow(BrowserWindow, pdfPath);
+    try { const out = []; for (let n = 1; n <= count; n++) out.push(await probe.page(n)); return out; } finally { probe.close(); }
+  }
   async function printPdf(htmlFile) {
     const printer = new BrowserWindow({show: false, width: 794, height: 1123, webPreferences: {sandbox: true, contextIsolation: true, javascript: true}});
     try {
@@ -51,5 +61,5 @@ export function createCvWindows(ctx) {
     review.loadFile(cvlib.reviewPage(getStorage(), record));
     return true;
   }
-  return {keepLook, printPdf, openTailoredCv};
+  return {keepLook, printPdf, openTailoredCv, readCvPdf, pageImages};
 }
