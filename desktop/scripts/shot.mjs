@@ -15,7 +15,8 @@
 //   --width <px>       the window's width, to check a narrow layout (default 1280; the window's minimum is lib/main-window.js MIN_WIDTH)
 //   --out <file.png>   where the picture goes (default: $TMPDIR/job-pilotto-shot.png)
 //   --search <json>    written as config/search.json (a state the demo lacks: the strategy's lists)
-//   --theme <light|dark>  the app's theme (Settings → Appearance; the demo's default is dark). A data-theme attribute set by --js does nothing: the CSS follows Electron's theme source.
+//   --theme <light|dark>  the app's theme; the demo's default is dark. The one way: the app's own JOB_PILOTTO_THEME (lib/main-window.js applyTheme), which this option sets and an exported
+//                      JOB_PILOTTO_THEME also does. A data-theme attribute set by --js does nothing: the CSS follows Electron's theme source.
 //   --settings <json>  merged into the demo's settings.json first (a state the demo lacks: '{"store":"sqlite"}')
 // The full reference set is npm run ui-shots (only after big UI changes, or when asked).
 import {spawnSync} from 'node:child_process';
@@ -53,9 +54,9 @@ const script = code => `(async () => { ${code} })()`;
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shot-'));
 for (const file of fs.readdirSync(path.join(desktop, 'demo'))) if (file !== 'jobs.json') fs.copyFileSync(path.join(desktop, 'demo', file), path.join(data, file));
 // --settings '<json>': merged into the demo copy's settings.json, to render a state the demo doesn't have (e.g. '{"store":"sqlite"}').
-if (option('settings') || option('theme')) {
+if (option('settings')) {
   const file = path.join(data, 'settings.json');
-  fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), ...JSON.parse(option('settings') || '{}'), ...(option('theme') ? {theme: option('theme')} : {})}, null, 2));
+  fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), ...JSON.parse(option('settings'))}, null, 2));
 }
 // --search '<json>': written as the demo's config/search.json, so the Strategy cards show lists (the demo folder has no search settings of its own).
 if (option('search')) {
@@ -65,6 +66,7 @@ if (option('search')) {
 const out = path.resolve(option('out') || path.join(os.tmpdir(), 'job-pilotto-shot.png'));
 fs.rmSync(`${out}.json`, {force: true});
 const env = {...process.env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_SMOKE: out, JOB_PILOTTO_SMOKE_JS: script(steps.join('\n'))};
+if (option('theme')) env.JOB_PILOTTO_THEME = option('theme');
 if (option('width')) env.JOB_PILOTTO_SHOT_WIDTH = option('width');
 if (flag('full')) env.JOB_PILOTTO_SMOKE_FULL = '1';
 if (flag('reload')) env.JOB_PILOTTO_SMOKE_RELOAD_JS = script((flag('log') ? expandLog : wait(500)) + (options('mark').length ? markSteps(options('mark')) : ''));   // a reload wipes the frames
