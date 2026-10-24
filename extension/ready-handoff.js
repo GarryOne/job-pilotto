@@ -5,7 +5,8 @@
 // which the app serves for this page with its kind (desktop/lib/ready-handoff.js: no reading, no AI), and asks only what the night did not see. Never a
 // password (the server never takes one), never a file (the normal fill uploads them), never Submit. Guard: desktop/test/extension-ready-handoff.test.js.
 
-const key = tabId => `handoff:${tabId}`;
+export const handoffKey = tabId => `handoff:${tabId}`;
+const key = handoffKey;
 
 // The page side, run in the tab: the origin's storage only. The night's values are not written into the page here: a page that starts up after load
 // cleared them, and a menu can't be set that way (owner, 18 Oct 2026, 6 of 13 put back then cleared). The fill types them with its own operators, from the
