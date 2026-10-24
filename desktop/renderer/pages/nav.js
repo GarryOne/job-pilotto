@@ -148,9 +148,12 @@ export function paletteCommands() {
   // The Pro plan (pages/plan.js), only when the site's plan is on: the Plan card in Settings → Plan.
   if (['test', 'live'].includes(shared.plan?.mode)) {
     const goPlan = () => { openSetting('plan'); };
-    if (shared.plan.plan === 'pro') { add('Settings', 'Plan and AI credit', 'Your AI credit left and your plan', 'pro plan credit ai balance license', goPlan); add('Settings', 'Add AI credit', 'A one-time top-up: $5, $10 or $20', 'pro top up topup credit buy ai more', goPlan); }
-    else {
-      add('Settings', 'Upgrade to Pro', PROMISE, 'pro upgrade plan price buy pay unlimited license', goPlan);
+    if (shared.plan.plan === 'pro') {
+      if (shared.plan.package === 'pro') add('Settings', 'Upgrade to Pro + AI', 'Pay only the difference to add the AI credit', 'pro ai upgrade credit plan buy pay difference', goPlan);
+      add('Settings', 'Plan and AI credit', 'Your AI credit left and your plan', 'pro plan credit ai balance license', goPlan); add('Settings', 'Add AI credit', 'A one-time top-up: €5, €10 or €20', 'pro top up topup credit buy ai more', goPlan);
+    } else {
+      add('Settings', 'Get Pro', PROMISE, 'pro upgrade plan price buy pay unlimited license', goPlan);
+      add('Settings', 'Get Pro + AI', `${PROMISE}, AI credit included`, 'pro ai upgrade plan price buy pay credit unlimited license', goPlan);
       add('Settings', 'I have Pro', 'Add this computer with a code sent by e-mail', 'pro sign in signin code add device computer have', () => { goPlan(); setTimeout(() => $('plan-have-pro')?.click(), 300); });
     }
   }

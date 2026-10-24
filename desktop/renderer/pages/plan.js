@@ -18,24 +18,39 @@ function render(view) {
   const body = $('plan-body');
   body.replaceChildren();
   if (view.kind === 'upgrade') {
-    body.append(el('p', 'panel-lead', view.price), el('ul', 'plan-list', ''));
-    body.lastChild.append(...view.included.map(text => el('li', '', text)));
-    const pay = el('button', 'primary', view.button);
-    pay.addEventListener('click', () => buy('pro'));
-    body.append(el('div', 'inline', ''));
-    body.lastChild.append(pay);
-    body.append(signinPart(() => load()));
+    const cards = el('div', 'inline', '');
+    for (const pack of view.packages) {
+      const card = el('div', 'summary-card', '');
+      const price = el('p', 'panel-lead', '');
+      if (pack.list) price.append(el('s', 'muted', pack.list), ' ');
+      price.append(el('strong', '', pack.price), ' one-time payment, no subscription');
+      const pay = el('button', pack.kind === 'pro-ai' ? 'primary' : 'secondary', pack.button);
+      pay.addEventListener('click', () => buy(pack.kind));
+      card.append(el('h4', '', pack.name), price, el('ul', 'plan-list', ''), pay);
+      card.querySelector('ul').append(...pack.included.map(text => el('li', '', text)));
+      cards.append(card);
+    }
+    body.append(cards, signinPart(() => load()));
     return;
   }
-  const bar = el('div', 'bar license-bar', ''), fill = el('span', '', '');
-  fill.style.width = `${Math.max(2, view.percent)}%`;
-  bar.dataset.tone = view.tone;
-  bar.append(fill);
-  body.append(el('p', 'panel-lead', view.label), bar, el('p', 'muted panel-lead', view.note));
+  if (view.hasCredit) {
+    const bar = el('div', 'bar license-bar', ''), fill = el('span', '', '');
+    fill.style.width = `${Math.max(2, view.percent)}%`;
+    bar.dataset.tone = view.tone;
+    bar.append(fill);
+    body.append(el('p', 'panel-lead', view.label), bar, el('p', 'muted panel-lead', view.note));
+  } else body.append(el('p', 'panel-lead', view.label), el('p', 'muted panel-lead', view.note));
+  if (view.upgrade) {
+    const upgrade = el('button', 'primary', `Get Pro + AI for ${view.upgrade.price} more`);
+    upgrade.title = 'You pay only the difference. It adds the AI credit.';
+    upgrade.addEventListener('click', () => buy('upgrade'));
+    body.append(el('div', 'inline', ''));
+    body.lastChild.append(upgrade);
+  }
   const row = el('div', 'inline', '');
   for (const top of view.topups) {
     const button = el('button', 'secondary', `Add ${top.price}`);
-    button.title = `${top.price} adds ${top.credit} of AI credit (VAT included in the price)`;
+    button.title = `${top.price} adds AI credit (VAT included in the price)`;
     button.addEventListener('click', () => buy(top.kind));
     row.append(button);
   }

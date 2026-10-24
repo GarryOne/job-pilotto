@@ -7,7 +7,7 @@ import {GRACE_DAYS, OFF, createPlan} from '../lib/plan.js';
 import {setSiteOff} from '../lib/recipes.js';
 import {createAppAllowance} from '../lib/app-allowance.js';
 import {chip} from '../renderer/license-chip.js';
-import {NOTES, OWN_KEY, TOPUPS, TOPUP_NOTE, planView, warnNow} from '../renderer/plan-view.js';
+import {INCLUDED, PACKAGE_INCLUDES, NOTES, NO_CREDIT, OWN_KEY, TOPUP_NOTE, planView, warnNow} from '../renderer/plan-view.js';
 import {planLine} from '../renderer/plan-line.js';
 
 const storage = (settings = {}) => { let s = settings; return {settings: () => s, saveSettings: p => { s = {...s, ...p}; }, secret: () => '', setSecret() {}}; };
@@ -77,30 +77,35 @@ test('credit used up: our AI starts nothing new (top up or own key); an own key 
   for (const warn of [null, 30, 10]) assert.equal(app({plan: {plan: 'pro', mode: 'test', creditPercent: 20, warn}, settings: {aiFree: true}}).allowanceBlock(), null, `warn ${warn}`);
 });
 
-test('the plan card: nothing when off; Upgrade for Free with the price from the site; the credit bar, the warning and the top-ups for Pro; never dollars for the credit', () => {
+const OFFERS = [{id: 'pro', name: 'Pro', price: '9', list: null, currency: 'EUR', credit: false}, {id: 'pro-ai', name: 'Pro + AI', price: '19', list: '29', currency: 'EUR', credit: true},
+  {id: 'upgrade', name: 'Upgrade to Pro + AI', price: '10', list: null, currency: 'EUR', credit: true}, ...[5, 10, 20].map(n => ({id: `topup${n}`, name: 'AI credit', price: String(n), list: null, currency: 'EUR', credit: true}))];
+
+test('the plan card: nothing when off; two packages for Free with the euro prices from the site; the credit bar for Pro + AI; no bar for Pro; never dollars', () => {
   // 17 Oct 2026: the credit warning names the level crossed, never a different number from the bar; the bullets say hosted keeps it always on.
   assert.match(NOTES[30], /under 30%/); assert.match(NOTES[10], /under 10%/);
-  assert.ok(planView({mode: 'test', plan: 'free'}).included.includes('Always on: new matches every morning, even when your Mac is off'));
-  assert.ok(!planView({mode: 'test', plan: 'free'}).included.some(line => /Your data stays yours/.test(line)));
   assert.equal(planView({mode: 'off'}), null); assert.equal(planView(), null);
-  const up = planView({mode: 'test', plan: 'free', offer: {price: '29', launch: '19'}});
-  assert.equal(up.price, '$19 one-time, no subscription. Launch price while it lasts; usually $29.');
-  assert.match(planView({mode: 'live', plan: 'free', offer: {price: '29', launch: ''}}).price, /^\$29 one-time, no subscription\.$/);
-  assert.doesNotMatch(JSON.stringify(up), /lifetime/i);
-  const pro = planView({mode: 'test', plan: 'pro', creditPercent: 25, warn: 30});
-  assert.deepEqual([pro.label, pro.tone, pro.note], ['AI credit: 25% left', 'info', NOTES[30]]);
-  assert.equal(planView({mode: 'test', plan: 'pro', creditPercent: 5, warn: 10}).tone, 'bad');
-  assert.equal(planView({mode: 'test', plan: 'pro', creditPercent: 80, warn: null}).note, OWN_KEY);
-  for (const text of [pro.label, ...Object.values(NOTES), OWN_KEY]) assert.doesNotMatch(text, /\$\d|applications? left|neuron/i, text);
-  assert.deepEqual(TOPUPS.map(top => [top.price, top.credit]), [['$5', '$2.80'], ['$10', '$5.80'], ['$20', '$11.80']]);
-  for (const top of TOPUPS) assert.ok(TOPUP_NOTE.includes(`${top.price} adds ${top.credit}`), `the note says what ${top.price} buys`);
+  assert.equal(planView({mode: 'test', plan: 'free'}), null, 'no offers from the site, nothing to sell');
+  const free = planView({mode: 'test', plan: 'free', offers: OFFERS});
+  assert.deepEqual(free.packages.map(p => [p.kind, p.price, p.list, p.button]), [['pro', '€9', null, 'Pay securely with Stripe'], ['pro-ai', '€19', '€29', 'Pay securely with Stripe']]);
+  assert.ok(free.packages.every(p => p.included.includes('Always on: new matches every morning, even when your Mac is off')));
+  assert.doesNotMatch(JSON.stringify([free, INCLUDED, PACKAGE_INCLUDES, TOPUP_NOTE, NOTES, OWN_KEY, NO_CREDIT]), /lifetime|\$\d|applications? left|neuron/i);
+  const proAi = planView({mode: 'test', plan: 'pro', package: 'pro-ai', hasCredit: true, creditPercent: 25, warn: 30, offers: OFFERS});
+  assert.deepEqual([proAi.pill, proAi.label, proAi.tone, proAi.note, proAi.upgrade], ['Pro + AI', 'AI credit: 25% left', 'info', NOTES[30], null]);
+  assert.deepEqual(proAi.topups.map(top => [top.kind, top.price]), [['topup5', '€5'], ['topup10', '€10'], ['topup20', '€20']]);
+  assert.equal(planView({mode: 'test', plan: 'pro', package: 'pro-ai', hasCredit: true, creditPercent: 5, warn: 10, offers: OFFERS}).tone, 'bad');
+  assert.equal(planView({mode: 'test', plan: 'pro', package: 'pro-ai', hasCredit: true, creditPercent: 80, warn: null, offers: OFFERS}).note, OWN_KEY);
+  const bare = planView({mode: 'test', plan: 'pro', package: 'pro', hasCredit: false, creditPercent: 0, warn: null, offers: OFFERS});
+  assert.deepEqual([bare.pill, bare.hasCredit, bare.note, bare.upgrade.price, bare.topups.length], ['Pro', false, NO_CREDIT, '€10', 3], 'Pro: no bar, the upgrade for the difference, the top-ups');
 });
 
-test('the top-up credits shown here are the site\'s (when the site\'s table is in this checkout)', () => {
-  const file = new URL('../../api/pro-pay.js', import.meta.url);
-  if (!fs.existsSync(file)) return;   // PR 2 (payments) not merged yet: the check starts with it
-  const source = fs.readFileSync(file, 'utf8');
-  for (const [kind, micro] of [['topup5', 2_800_000], ['topup10', 5_800_000], ['topup20', 11_800_000]]) assert.ok(source.includes(`${kind}: ${micro.toLocaleString('en-US').replaceAll(',', '_')}`), `${kind} credit matches api/pro-pay.js`);
+test('Pro without AI credit: our AI as the engine is blocked with "add credit or own key"; an own key stays unlimited; the sidebar shows no bar', () => {
+  const bare = {plan: 'pro', package: 'pro', mode: 'test', hasCredit: false, creditPercent: 0, warn: null};
+  assert.match(app({plan: bare, settings: {aiFree: true}}).allowanceBlock().error, /Our AI needs AI credit/);
+  assert.equal(app({plan: bare, settings: {aiEngine: 'cli'}}).allowanceBlock(), null, 'an own key stays unlimited');
+  const withCredit = {...bare, package: 'pro-ai', hasCredit: true, creditPercent: 70};
+  assert.equal(app({plan: withCredit, settings: {aiFree: true}}).allowanceBlock(), null);
+  const state = app({plan: bare}).licenseState();
+  assert.deepEqual([chip(state).text, chip(state).percent], ['Pro plan', 100]);
 });
 
 test('warnings are said once each (30, 10, used up) and start over when the credit is above 30% again', () => {
@@ -122,6 +127,6 @@ test('every place that shows the plan is wired: the panel, the palette entries (
   assert.match(read('../renderer/index.html'), /id="setting-plan" hidden>/);
   const nav = read('../renderer/pages/nav.js');
   assert.match(nav, /\['test', 'live'\]\.includes\(shared\.plan\?\.mode\)/);
-  for (const label of ['Plan and AI credit', 'Add AI credit', 'Upgrade to Pro']) assert.ok(nav.includes(`'${label}'`), label);
+  for (const label of ['Plan and AI credit', 'Add AI credit', 'Get Pro', 'Get Pro + AI', 'Upgrade to Pro + AI']) assert.ok(nav.includes(`'${label}'`), label);
   assert.match(read('../preload.cjs'), /planState: call\('planState'\), planCheckout: call\('planCheckout'\)/);
 });
