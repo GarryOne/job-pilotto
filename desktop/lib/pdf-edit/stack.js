@@ -36,7 +36,7 @@ export function restack(doc, paras, markers, order, texts) {
   let seg = 0, y = segs[0].top, started = false;
   for (const i of order) {
     const para = paras[i], set = setWords(para, texts[i], Infinity);
-    if (set.missing) return {why: `no glyph for "${set.missing}"`};
+    if (set.missing) return {why: `no glyph for "${set.missing}"`, missingBy: set.missingBy};
     const placed = [];
     for (let li = 0; li < set.lines.length; li++) {
       if (started) y += li === 0 ? G : L;

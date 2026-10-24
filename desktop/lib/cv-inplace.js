@@ -42,12 +42,14 @@ export function roomOf(items) {
 // doc: read.js's view of the original PDF. base: cv.json. review: applyTailoring's review (bullets [{text, from, mark}], dropped, skills).
 // -> {plan: {remove, add, marks}, boxes: [{p, x, y, w, h, mark}], warnings, changed: count of items re-set, kept: count left as they were}
 export function planInPlace(doc, base, review) {
-  const items = itemsOf(doc, base), plan = {remove: [], add: [], marks: []}, boxes = [], warnings = [];
+  const items = itemsOf(doc, base), plan = {remove: [], add: [], marks: []}, boxes = [], warnings = [], missing = {};
+  const lacks = by => { for (const [name, letters] of Object.entries(by || {})) missing[name] = [...new Set((missing[name] || '') + letters)].join(''); };
   let changed = 0, kept = 0;
   const keep = (where, why) => { kept++; warnings.push(`${where}: ${why}; kept your original wording`); };
   const set = (item, text, mark) => {
     if (!item.shows) return keep(item.where, 'not found on your CV page');
     const r = resetItem(doc, item.shows, text);
+    lacks(r.missingBy);
     if (!r.fits) return keep(item.where, r.missing ? `your CV's font has no "${r.missing}"` : 'the new wording is longer than its lines');
     plan.remove.push(...r.remove); plan.add.push(...r.add); changed++;
     boxes.push(...r.add.map(a => ({...a.box, mark})));
@@ -73,6 +75,7 @@ export function planInPlace(doc, base, review) {
     if (own.length > 1 && own.every(i => i.para) && (moved || reworded.some((item) => !setWords(item.para, texts[own.indexOf(item)]).fits))) {
       const paras = own.map(i => i.para), markers = own.map(i => markersOf(doc, i.para));
       let stacked = restack(doc, paras, markers, order, texts);
+      lacks(stacked.missingBy);
       if (stacked.why === 'longer than the block') {   // keep the new order: the bullets that grew a line go back to their own wording
         const grew = own.map((item, x) => texts[x] !== item.text && setWords(item.para, texts[x], Infinity).lines.length > item.para.lines.length);
         const fallback = texts.map((t, x) => (grew[x] ? own[x].text : t));
@@ -90,5 +93,28 @@ export function planInPlace(doc, base, review) {
     const skills = items.find(i => i.kind === 'skills' && i.j === j && i.r === r);
     if (skills && tailored.skills && plain(tailored.skills) !== skills.text) set(skills, tailored.skills, 'reworded');
   }));
-  return {plan, boxes, warnings, changed, kept};
+  return {plan, boxes, warnings, changed, kept, missing};
+}
+
+// The whole in-place step: plan, and when letters are missing from the file's fonts, find them (installed, downloaded once, a same-width
+// twin) and plan again with them. fonts: {cacheDir, fetchImpl, dirs} for fonts.js. -> planInPlace's result + embeds for write.js
+export async function tailorInPlace(doc, base, review, fonts = {}) {
+  let result = planInPlace(doc, base, review);
+  const names = Object.entries(result.missing);
+  if (!names.length || fonts.off) return {...result, embeds: {}, found: []};
+  const {findFont} = await import('./pdf-edit/fonts.js');
+  const extra = {}, embeds = {}, found = [];
+  for (const [name, letters] of names) {
+    const font = await findFont(name, letters, fonts);
+    if (!font) continue;
+    const key = `x:${name}`;
+    extra[name] = {key, fm: font.fm, glyphs: font.glyphs};
+    embeds[key] = font.bytes;
+    found.push({name, letters, from: font.from});
+  }
+  if (!found.length) return {...result, embeds: {}, found};
+  Object.defineProperty(doc, 'extraFonts', {value: extra, configurable: true, enumerable: false});
+  result = planInPlace(doc, base, review);
+  const used = new Set(result.plan.add.flatMap(a => a.runs.map(r => r.font)));
+  return {...result, embeds: Object.fromEntries(Object.entries(embeds).filter(([key]) => used.has(key))), found};
 }
