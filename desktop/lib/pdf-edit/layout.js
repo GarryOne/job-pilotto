@@ -117,7 +117,7 @@ export function measure(doc, shows) {
     if (word.length > 1) { ink += word[word.length - 1].x + word[word.length - 1].w - word[0].x; nat += word.reduce((t, g) => t + g.w, 0); }
   }
   const k = nat ? Math.min(1.1, Math.max(0.85, ink / nat)) : 1, tcExtra = (k - 1) * (n ? sum / n : 0);
-  return {shows, lines, main, scale, ps, right, leading, justified, gap, squeeze, tcExtra, pool, glyphOf, adv, ligate, space: space ? adv(space) : 0,
+  return {shows, lines, main, scale, ps, right, leading, justified, gap, squeeze, tcExtra, pool, glyphOf, adv, ligate, nameOf: key => fonts[key]?.name || '', space: space ? adv(space) : 0,
     x0: i => (i === 0 ? lines[0].x0 : cont.x0), box: box(lines, ps)};
 }
 
@@ -136,7 +136,7 @@ function pageLines(doc, p) {
 
 const box = (lines, ps) => lines.map(l => ({p: l.p, x: l.x0, y: l.y - ps * 0.85, w: l.x1 - l.x0, h: ps * 1.1}));
 
-// New wording broken into the paragraph's lines. -> {lines: [[word]], missing: 'letters no font here has', fits}
+// New wording broken into the paragraph's lines. -> {lines: [[word]], missing: 'letters no font here has', missingBy: {font name: letters}, fits}
 export function setWords(para, text, slots = para.lines.length) {
   const pool = new Map([...para.pool].map(([key, list]) => [key, [...list]]));
   const pick = t => {
@@ -150,9 +150,9 @@ export function setWords(para, text, slots = para.lines.length) {
     return {font: para.main.font, fill: para.main.fill, shape: null};
   };
   const words = String(text).replace(/\*\*/g, '').trim().split(/\s+/).filter(Boolean).map(t => para.ligate(t)).map(t => ({t, ...pick(t)}));
-  const missing = new Set();
+  const missing = new Set(), by = {};
   const wordW = w => {
-    const gls = [...w.t].map(ch => { const gl = para.glyphOf(ch, w.font); if (!gl) missing.add(ch); return gl; });
+    const gls = [...w.t].map(ch => { const gl = para.glyphOf(ch, w.font); if (!gl) { missing.add(ch); (by[para.nameOf(w.font)] ??= new Set()).add(ch); } return gl; });
     if (w.shape && gls.every(Boolean)) return w.shape[w.shape.length - 1].dx + para.adv(gls[gls.length - 1]);
     w.shape = null;
     return gls.reduce((s, gl) => s + (gl ? para.adv(gl) + para.tcExtra : para.ps * 0.5), 0);
@@ -166,7 +166,8 @@ export function setWords(para, text, slots = para.lines.length) {
     if (cur.length && para.x0(out.length) + width > room) { out.push(cur); cur = [w]; } else cur = trial;
   }
   if (cur.length) out.push(cur);
-  return {lines: out, missing: [...missing].join(''), fits: out.length <= slots && !missing.size};
+  return {lines: out, missing: [...missing].join(''), missingBy: Object.fromEntries(Object.entries(by).map(([name, set]) => [name, [...set].join('')])),
+    fits: out.length <= slots && !missing.size};
 }
 
 // One set line as a text operation for write.js: {p, x, y, size, m, th, tc, runs: [{font, fill, items: [{code | ch, adj}]}]}.
@@ -209,7 +210,7 @@ export function copyShow(doc, p, k, to) {
 // Re-sets one item on its own lines. -> {remove: [{p, k}], add: [lineOp], fits, missing, para}; fits false = the original stays.
 export function resetItem(doc, shows, text) {
   const para = measure(doc, shows), set = setWords(para, text);
-  if (!set.fits) return {remove: [], add: [], fits: false, missing: set.missing, para, lines: set.lines.length};
+  if (!set.fits) return {remove: [], add: [], fits: false, missing: set.missing, missingBy: set.missingBy, para, lines: set.lines.length};
   const add = set.lines.map((ws, i) => lineOp(para, ws, {p: para.lines[i].p, y: para.lines[i].y, x: para.x0(i), last: i === set.lines.length - 1}));
   return {remove: shows, add, fits: true, missing: '', para, lines: set.lines.length};
 }
