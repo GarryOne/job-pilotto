@@ -11,6 +11,7 @@ import {python, pythonEnv} from '../lib/python.mjs';
 import {fileURLToPath} from 'node:url';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
+import {placesNote} from '../lib/quality-places.mjs';
 import {plainTextOf, rewriteTextLines} from '../lib/seed-texts.mjs';
 import {MATCHES, matchRowsOf, notKeptNote} from '../lib/quality-rows.mjs';
 import {clearData} from '../lib/start-state.mjs';
@@ -227,7 +228,7 @@ export async function run(ctx) {
       // The candidate as the scoring knows them: only the Profile page it read (src/ai/score.py scores "using only the profile and the posting").
       // The CV text is left out: with it, a gap such as "Datadog is not named in your profile" was judged invented whenever the CV had the skill and
       // the seeded Profile did not (#350: jobs 3001, 3002, 3010 on 11 and 12 Oct 2026).
-      const profile = `THE PROFILE\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await plainTextOf(ctx, 'profile').catch(() => '')}`.slice(0, 30000);
+      const profile = `THE PROFILE\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await plainTextOf(ctx, 'profile').catch(() => '')}`.slice(0, 30000) + placesNote(JSON.parse(fs.readFileSync(path.join(ctx.profile, 'config', 'search.json'), 'utf8')).locations);   // the places the scorer read (lib/quality-places.mjs)
       const verdicts = [], problems = [];
       const todo = postings.filter(item => byId[item.id]);
       for (let i = 0; i < todo.length; i += 4) {
