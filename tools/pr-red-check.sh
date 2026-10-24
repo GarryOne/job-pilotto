@@ -21,7 +21,7 @@ dirs=("$cwd")
 if [ -f "$transcript" ]; then
   while IFS= read -r w; do [ -d "$w" ] && dirs+=("$w"); done < <(
     tail -n 4000 "$transcript" | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command // empty' 2>/dev/null |
-      grep -E 'tools/ship\.sh' | grep -oE '/[^[:space:]"'"'"'`;|&()]*(\.claude/worktrees/|job-pilotto-site-)[^/[:space:]"'"'"'`;|&()]+' | sort -u | head -5)   # also the private site repo's sibling worktrees (job-pilotto-site-<topic>), shipped with this repo's tools/ship.sh
+      grep -E 'tools/ship\.sh' | grep -oE '/[^[:space:]"'"'"'`;|&()]*(\.claude/worktrees/|job-pilotto-site-|jobadabra-web-)[^/[:space:]"'"'"'`;|&()]+' | sort -u | head -5)   # also the private site repo's sibling worktrees (job-pilotto-site-<topic>), shipped with this repo's tools/ship.sh
 fi
 
 lookup() {  # <branch> <dir of its worktree>: prints "<n>\t<url>\t<red checks joined by ,>" for its open PR when one is red, nothing otherwise; cached for $ttl seconds

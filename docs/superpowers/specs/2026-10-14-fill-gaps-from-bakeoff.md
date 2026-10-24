@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > **Verdict (owner's question, 14 Oct 2026: "do we have room for improvement?"): yes.** On the 5 live forms every tool ran, the extension (latest main, the Hadrian-shape regression fixed) fills **31 of 62 required fields right, 0 wrong** (50%; the open-source agents 33–42%). About **13 of the 31 empty ones are real gaps** (up to ~70%), and the agents already fill some of them. The benchmark also **never tested** account creation, multi-page wizards on live sites or posting-to-form flows.
 
-**Why:** the bake-off (extension vs Stagehand, Browser Use, Nanobrowser; private repo `GarryOne/job-pilotto-bakeoff`, its `README.md` and `QA.md`) ends with a score; this spec turns its misses into work. Raw data per field: that repo's `results/runs/*/judged.json`.
+**Why:** the bake-off (extension vs Stagehand, Browser Use, Nanobrowser; private repo `GarryOne/jobadabra-bakeoff`, its `README.md` and `QA.md`) ends with a score; this spec turns its misses into work. Raw data per field: that repo's `results/runs/*/judged.json`.
 
 ## The 31 empty required fields (latest main, regression fixed)
 

@@ -18,7 +18,7 @@ try {
   fs.writeFileSync(privKeyFile, Buffer.from(key, 'base64'), {mode: 0o600});
   const gh = argv => execFileSync('gh', argv, {encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 1 << 28});
   const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
-  const result = compactRelease(gh, {repo: process.env.NET_RECORDS_REPO || 'GarryOne/job-pilotto-internal', tag: 'net-records', backupTag, work, privKeyFile, pubKey: path.join(here, 'net-record.pub.pem'), dry: args.includes('--dry'), stamp, log: line => console.log(`records-compact: ${line}`)});
+  const result = compactRelease(gh, {repo: process.env.NET_RECORDS_REPO || 'GarryOne/jobadabra-lab', tag: 'net-records', backupTag, work, privKeyFile, pubKey: path.join(here, 'net-record.pub.pem'), dry: args.includes('--dry'), stamp, log: line => console.log(`records-compact: ${line}`)});
   console.log(`records-compact: ${result.before} assets -> ${result.after} (${result.rows} rows)`);
 } catch (error) { console.error(`records-compact: FAILED, the release is as it was unless the line above says otherwise: ${error.message}`); process.exitCode = 1; }
 finally { fs.rmSync(work, {recursive: true, force: true}); }

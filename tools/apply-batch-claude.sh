@@ -37,7 +37,7 @@
 
 set -euo pipefail
 
-REPO_DIR="$HOME/job-pilotto"
+REPO_DIR="$([ -d "$HOME/jobadabra/.git" ] && echo "$HOME/jobadabra" || echo "$HOME/job-pilotto")"   # moved to ~/jobadabra on 24 Oct 2026
 TERMINAL_APP="Terminal"   # switch to "iTerm" if that's what's installed/preferred
 GAP=3                     # seconds between spawning windows, so they don't all hit Chrome/Notion at once simultaneously
 
