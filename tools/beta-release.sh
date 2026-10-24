@@ -6,7 +6,7 @@
 # Each platform is approved on its own. A red gate leaves that platform's testers on their current beta. Never call tools/beta-approve.sh by hand: it skips the gate.
 #   tools/beta-release.sh [--no-watch]
 set -euo pipefail
-repo=GarryOne/job-pilotto
+repo=GarryOne/jobadabra
 gh workflow run desktop.yml -R "$repo" --ref main -f beta=true
 sleep 5
 run=$(gh run list -R "$repo" --workflow desktop.yml --event workflow_dispatch -L 5 --json databaseId,displayTitle,url \

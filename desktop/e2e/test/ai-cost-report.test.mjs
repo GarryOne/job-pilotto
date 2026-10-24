@@ -15,9 +15,9 @@ test('the figure comes from claude-code-action\'s record, a cost file or a plain
 });
 
 test('one row per run; a matrix job adds its key so its runs do not replace each other', () => {
-  const env = {GITHUB_RUN_ID: '123', GITHUB_REPOSITORY: 'GarryOne/job-pilotto'}, now = new Date('2026-10-04T05:00:00Z');
+  const env = {GITHUB_RUN_ID: '123', GITHUB_REPOSITORY: 'GarryOne/jobadabra'}, now = new Date('2026-10-04T05:00:00Z');
   assert.deepEqual(runRow({job: 'ui-fix', suffix: '#49', env, now, usd: 0.2534567, calls: 5}),
-    {job: 'ui-fix', run_id: '123--49', at: '2026-10-04T05:00:00.000Z', usd: 0.253457, calls: 5, repo: 'GarryOne/job-pilotto'});
+    {job: 'ui-fix', run_id: '123--49', at: '2026-10-04T05:00:00.000Z', usd: 0.253457, calls: 5, repo: 'GarryOne/jobadabra'});
   assert.equal(runRow({job: 'x', env, now, usd: 1, calls: 0}).run_id, '123');
 });
 

@@ -40,7 +40,7 @@ on:
 permissions:
   contents: write      # create the release
   id-token: write      # build provenance: GitHub signs "this file was built from this commit by this workflow"
-  attestations: write  # (verify: gh attestation verify <file> -R GarryOne/job-pilotto)
+  attestations: write  # (verify: gh attestation verify <file> -R GarryOne/jobadabra)
   actions: write       # start a fresh build of main when this one can't be released (see Release)
 
 # A release runs to the end (both lanes, their gates, the clean-up); a newer run waits, and only the newest waiting one runs.

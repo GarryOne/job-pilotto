@@ -10,7 +10,7 @@ import {buildReplay, eventOf, parseReplay, pathSummary, replayBlock, replayComme
 import {runSummary, totalRuns} from '../lib/run-summary.mjs';
 import {issueBody} from '../lib/triage.mjs';
 
-const CI = {GITHUB_EVENT_NAME: 'schedule', GITHUB_SHA: '3806ebee7cc568adda2aaf0c85f2fd76abf', GITHUB_RUN_ID: '37304870238', GITHUB_REPOSITORY: 'GarryOne/job-pilotto', CI: 'true'};
+const CI = {GITHUB_EVENT_NAME: 'schedule', GITHUB_SHA: '3806ebee7cc568adda2aaf0c85f2fd76abf', GITHUB_RUN_ID: '37304870238', GITHUB_REPOSITORY: 'GarryOne/jobadabra', CI: 'true'};
 const trail = [{name: 'focus: stays still once it has loaded', status: 'passed', seconds: '8.1'}, {name: 'jobs: every safe control does something', status: 'failed'}];
 
 test('a seeded run says its seed, window, place, theme, commit and run page; the command replays it', () => {
@@ -18,7 +18,7 @@ test('a seeded run says its seed, window, place, theme, commit and run page; the
     path: {pages: ['focus', 'jobs'], pressed: [{view: 'focus', name: 'Dismiss', effects: 'card removed'}]}});
   assert.deepEqual([replay.mode, replay.seed, replay.window, replay.zone, replay.locale, replay.theme, replay.platform, replay.commit, replay.event],
     ['seeded', 2798083162, [1024, 640], 'Asia/Tokyo', 'ja-JP', 'dark', 'mac', '3806ebe', 'schedule']);
-  assert.equal(replay.run, 'https://github.com/GarryOne/job-pilotto/actions/runs/37304870238');
+  assert.equal(replay.run, 'https://github.com/GarryOne/jobadabra/actions/runs/37304870238');
   assert.equal(replayCommand(replay), 'cd desktop/e2e && E2E_SEED=2798083162 node suite.mjs interactions');
 });
 

@@ -16,7 +16,7 @@ import sys
 import urllib.parse
 import urllib.request
 
-REPO = 'GarryOne/job-pilotto'
+REPO = 'GarryOne/jobadabra'
 DESKTOP = re.compile(r'^desktop-v\d')
 
 

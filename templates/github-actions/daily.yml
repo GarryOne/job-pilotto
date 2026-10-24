@@ -1,5 +1,5 @@
 # Job Pilotto — your scheduled job search, in YOUR private repo (the Desktop App puts it there).
-# It runs the public engine (GarryOne/job-pilotto) with this repo's secrets and variables, so your
+# It runs the public engine (GarryOne/jobadabra) with this repo's secrets and variables, so your
 # logs, job database and results stay private. Schedules are in UTC.
 name: Job Pilotto
 run-name: ${{ inputs.mode || 'scheduled' }}${{ inputs.job && format(' {0}', inputs.job) || '' }}
@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   engine:
-    uses: GarryOne/job-pilotto/.github/workflows/daily.yml@main
+    uses: GarryOne/jobadabra/.github/workflows/daily.yml@main
     with:
       mode: ${{ inputs.mode || 'scheduled' }}
       job: ${{ inputs.job }}
@@ -38,6 +38,6 @@ jobs:
       file: ${{ inputs.file }}
       note: ${{ inputs.note }}
       interview: ${{ inputs.interview }}
-      code_repository: GarryOne/job-pilotto
+      code_repository: GarryOne/jobadabra
       code_ref: main   # the Job Pilotto app writes its own release here, so this repo runs the code of the installed app
     secrets: inherit

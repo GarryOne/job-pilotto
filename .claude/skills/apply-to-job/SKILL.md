@@ -180,7 +180,7 @@ in that file next time — keep evolving it.
 | What | Where |
 |---|---|
 | Kit (cover letter, answers per form field, checks) | Notion Applications row for the job → toggle "📝 Application kit" → JSON code block. Find the row by querying the Applications database (`f56b68942d3b43cbb85a7b1ebfe2df1b`, data source `collection://346d7756-bafc-4dff-881f-2710819d90da`) for the job URL — SQL mode, not schema-fetch-then-rows mode (see gotchas above). |
-| No kit yet | `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=prepare -f job=<job URL or 8-hex code>`; wait ~1 min (`gh run watch`). Or the 📝 Prepare button in Telegram. |
+| No kit yet | `gh workflow run daily.yml -R GarryOne/jobadabra -f mode=prepare -f job=<job URL or 8-hex code>`; wait ~1 min (`gh run watch`). Or the 📝 Prepare button in Telegram. |
 | Standard answers | Notion page Application Answers `3e562be8fd868108ae38d1f47d52a811` |
 | Profile | Notion page `3e562be8fd8681579078d09829921b8c` |
 | CV (upload + contact details) | `$JOB_PILOTTO_CV_PATH` (see `.env`) |

@@ -16,7 +16,7 @@ import {collectChanges} from './lib/finder-changes.mjs';
 import {SIGNATURE_LABEL, signaturesFromBody} from './lib/signatures.mjs';
 
 const gh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
-const repo = () => process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/job-pilotto';
+const repo = () => process.env.REPO || process.env.GITHUB_REPOSITORY || 'GarryOne/jobadabra';
 
 // How many test mistakes the loop has taught itself (the pinned issue, lib/signatures.mjs).
 function learnedCount() {

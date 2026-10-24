@@ -3,7 +3,7 @@
 // ("Only select repositories"), so the app can't see or touch any other repo. The user creates the repo
 // from the public starter template, installs the app on it, and approves a sign-in code; the app then
 // commits the schedule and search settings, and stores their keys as encrypted repository secrets. Each run executes the public
-// engine (GarryOne/job-pilotto) with those secrets, so logs and data stay in the user's private repo.
+// engine (GarryOne/jobadabra) with those secrets, so logs and data stay in the user's private repo.
 import {FREE_BASE, TRIAL_KEY, isFreeKey} from './ai-free.js';
 import * as ai from './ai/index.js';
 import * as poolShare from './pool-share.js';

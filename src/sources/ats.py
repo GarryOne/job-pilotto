@@ -18,7 +18,7 @@ from pathlib import Path
 
 from . import host_pace, posting_text
 
-USER_AGENT = 'JobPilotto/0.1 (personal job search; contact via GitHub GarryOne/job-pilotto)'
+USER_AGENT = 'JobPilotto/0.1 (personal job search; contact via GitHub GarryOne/jobadabra)'
 TIMEOUT = 20
 DESCRIPTION_LIMIT = 12000
 

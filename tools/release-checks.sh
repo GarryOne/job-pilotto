@@ -4,7 +4,7 @@
 #   tools/release-checks.sh <tag> <commit sha>      exit 1, with the reason on stdout, when the build must not be offered
 set -euo pipefail
 tag=${1:?usage: tools/release-checks.sh <tag> <sha>}; ref=${2:?usage: tools/release-checks.sh <tag> <sha>}
-repo=${GITHUB_REPOSITORY:-GarryOne/job-pilotto}
+repo=${GITHUB_REPOSITORY:-GarryOne/jobadabra}
 
 verdict=$(gh run list -R "$repo" --workflow build.yml --commit "$ref" --status completed --json conclusion | python3 "$(dirname "${BASH_SOURCE[0]}")/e2e_gate.py" ci)
 # A push to main cancels the older commit's build.yml run (15 Oct 2026): the newest commit's run decides, so a cancelled run is green when a NEWER commit of main passed.

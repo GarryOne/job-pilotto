@@ -6,7 +6,7 @@ import {lessonsBlock, reversalsFrom} from './lib/reversals.mjs';
 
 const args = process.argv.slice(2), out = args[args.indexOf('--out') + 1] || '.heal/lessons.md';
 const gh = list => execFileSync('gh', list, {encoding: 'utf8', maxBuffer: 50 * 1024 * 1024});
-const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || process.env.GH_REPO || 'GarryOne/job-pilotto';
+const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || process.env.GH_REPO || 'GarryOne/jobadabra';
 let text = '';
 try {
   const events = gh(['api', `repos/${repo}/issues/events?per_page=100`, '--paginate', '--jq', '.[] | select(.event == "reopened" or .event == "unlabeled" or .event == "closed")'])

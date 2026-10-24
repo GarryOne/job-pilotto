@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: A security problem
-    url: https://github.com/GarryOne/job-pilotto/security/advisories/new
+    url: https://github.com/GarryOne/jobadabra/security/advisories/new
     about: Report it privately, never in a public issue.

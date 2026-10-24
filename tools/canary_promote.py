@@ -45,7 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from release_guard import is_desktop  # noqa: E402  (only desktop-v* tags are ever stable or candidates)
 
-REPO = 'GarryOne/job-pilotto'
+REPO = 'GarryOne/jobadabra'
 MIN_AGE = timedelta(hours=48)
 CANARY_WINDOW = timedelta(days=7)   # a canary not promoted within 7 days is dropped; the next build takes over
 # Builds older than this can't pass the trial (no run counts in health reports, or no Get Test Builds in the app),

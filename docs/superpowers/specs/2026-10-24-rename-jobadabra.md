@@ -21,12 +21,12 @@ Sketch the owner approved: https://claude.ai/artifact/ALtX7YbTmBskKK4ZP585Ny
 - [ ] Delete the throwaway repos (owner said yes; `gh` needs the delete_repo scope)
 - [x] GitHub: job-pilotto-site → jobadabra-web, job-pilotto-internal → jobadabra-lab, job-pilotto-bakeoff → jobadabra-bakeoff (proof: none: `gh api repos/GarryOne/job-pilotto-site` answers GarryOne/jobadabra-web, same for the other two)
 - [x] GitHub: owner's job-pilotto-private → jobadabra-personal-always-on (proof: none: App token by the old name 422, by the new name 201)
-- [ ] CI App `repositories:` lines on the new lab name (public: 6e's scout-rename PR; web: jobadabra-web#41)
-- [ ] Engine phase 1: `lib/engine-repo.js` follows the real name (start + every 6 h), both user-repo names found, CI checks by owner
+- [x] CI App `repositories:` lines on the new lab name (proof: none: public #1726 and jobadabra-web#41 merged)
+- [x] Engine phase 1: `lib/engine-repo.js` follows the real name (start + every 6 h), both user-repo names found, CI checks by owner (proof: none: #1732 merged, in desktop-v0.8.17+)
 - [ ] Phase 1 released and promoted to stable
-- [ ] Local move window (all sessions closed): folders, worktrees, .venv, hooks, jpc, auto-pull, Claude project key, symlinks
+- [x] Local move window (all sessions closed): folders, worktrees, .venv, hooks, jpc, auto-pull, Claude project key, symlinks (proof: none: move-local.sh --go ran 24 Oct 02:21Z; ~/jobadabra clean on main, 583 worktrees, 0 prunable, .venv ok)
 - [ ] Follow-up name PRs: public (tools/docs → jobadabra-lab/-web), jobadabra-web, jobadabra-lab
-- [ ] Gate: active installs on ≥ the phase-1 release (telemetry)
-- [ ] Rename GarryOne/job-pilotto → GarryOne/jobadabra (owner's yes), then templates/updater/tools on the new name
+- [x] Gate: SKIPPED by the owner ("Rename now"): 6 active installs, none on 0.8.17+; stable promotion closes the gap (proof: none: telemetry query 24 Oct)
+- [x] Rename GarryOne/job-pilotto → GarryOne/jobadabra (owner yes 24 Oct), templates/updater/tools on the new name in this PR (proof: none: API by the old name 301 → GarryOne/jobadabra; website Mac/Windows downloads 200 with the release sizes)
 - [ ] Verify: an app update, a private repo's daily run, CI green on all repos, `jpc` in ~/jobadabra with its memory
 - [ ] Remove the old-path symlinks (2 weeks after the move)

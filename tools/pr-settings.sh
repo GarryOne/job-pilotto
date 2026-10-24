@@ -10,7 +10,7 @@
 # (owner, 14 Oct 2026: "drop your shared pick logic, rely fully on gh workflow paths"). Every other PR workflow starts only when GitHub's `on: paths:` says the PR changed its area, and a workflow
 # that paths skip never reports, so none of them can be required; their red shows on the PR. Main runs them all on every push (tests/test_workflow_paths.py).
 set -euo pipefail
-repo="${PR_REPO:-GarryOne/job-pilotto}"
+repo="${PR_REPO:-GarryOne/jobadabra}"
 checks='All\ checks\ passed'
 ruleset="$(python3 - "$checks" <<'PY'
 import json, shlex, sys

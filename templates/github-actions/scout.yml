@@ -17,9 +17,9 @@ permissions:
 
 jobs:
   scout:
-    uses: GarryOne/job-pilotto/.github/workflows/scout.yml@main
+    uses: GarryOne/jobadabra/.github/workflows/scout.yml@main
     with:
       batch: ${{ inputs.batch || '40' }}
-      code_repository: GarryOne/job-pilotto
+      code_repository: GarryOne/jobadabra
       code_ref: main   # the Job Pilotto app writes its own release here, so this repo runs the code of the installed app
     secrets: inherit

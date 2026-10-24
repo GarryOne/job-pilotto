@@ -90,8 +90,8 @@ Older builds are `0.4.0-alpha.N`; the updater and the release tools still order 
 
 | | |
 |---|---|
-| **Turn on** | `gh variable set JOB_PILOTTO_AUTO_PROMOTE -R GarryOne/job-pilotto --body on` |
-| **Stop it** | `gh variable set JOB_PILOTTO_AUTO_PROMOTE -R GarryOne/job-pilotto --body off` (or delete the variable) |
+| **Turn on** | `gh variable set JOB_PILOTTO_AUTO_PROMOTE -R GarryOne/jobadabra --body on` |
+| **Stop it** | `gh variable set JOB_PILOTTO_AUTO_PROMOTE -R GarryOne/jobadabra --body off` (or delete the variable) |
 | **See the decision** | `python3 tools/canary_promote.py --dry-run` (changes nothing; with `JOB_PILOTTO_TELEMETRY_KEY` set to see the usage numbers) |
 
 While off, it still runs daily as a dry run. Promoting by hand (above) keeps working either way.
@@ -129,7 +129,7 @@ doesn't have. Code that adds a column still survives an older workspace (`cron_r
 
 1. Send the stable download: **Mac** `…/releases/latest/download/Job-Pilotto-mac-arm64.dmg`,
    **Windows** `…/releases/latest/download/Job-Pilotto-windows-x64.exe`
-   (`https://github.com/GarryOne/job-pilotto/…`).
+   (`https://github.com/GarryOne/jobadabra/…`).
 2. Mac: drag it to **Applications** (updates need it there). The first open shows **"Job Pilotto" Not Opened** (the app
    isn't notarized yet): click **Done** (never Move to Bin), then **System Settings → Privacy & Security** → scroll to
    *"Job Pilotto" was blocked* → **Open Anyway** → confirm. Once only. (Right-click → Open no longer works on recent macOS.)

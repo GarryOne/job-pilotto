@@ -7,7 +7,7 @@
 # (tools/canary_promote.py; the owner's app stays on it for that trial). After 7 days it's dropped too (it had
 # problems), and the next oldest becomes the canary.
 set -euo pipefail
-repo=${GITHUB_REPOSITORY:-GarryOne/job-pilotto}
+repo=${GITHUB_REPOSITORY:-GarryOne/jobadabra}
 keep=${1:-3}
 # Newest first; drafts are builds still running, so they're left alone.
 releases=$(gh release list -R "$repo" -L 1000 --json tagName,isPrerelease,isDraft,isLatest,createdAt)

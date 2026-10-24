@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from release_guard import desktop_only, is_desktop  # noqa: E402  (only desktop-v* releases are ever stable, 17 Oct 2026)
 
-REPO = 'GarryOne/job-pilotto'
+REPO = 'GarryOne/jobadabra'
 STABLE, BETA, BUILD, PREVIOUS = '✅ STABLE', '🧪 BETA (release candidate)', '🔨 Build', '📦 Previous stable'
 PREFIX = re.compile(r'^(?:✅ STABLE|🧪 BETA(?: \(release candidate\))?|🔨 Build|📦 Previous stable) · ')
 ISSUE_TITLE = '📌 Release channels (kept up to date automatically)'

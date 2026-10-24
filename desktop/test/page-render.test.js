@@ -11,7 +11,7 @@ test('only public web addresses are rendered, never this computer or the local n
 });
 
 test('the user agent is the engine\'s, never a browser\'s', () => {
-  const ours = 'JobPilotto/0.1 (personal job search; contact via GitHub GarryOne/job-pilotto) browser';
+  const ours = 'JobPilotto/0.1 (personal job search; contact via GitHub GarryOne/jobadabra) browser';
   assert.equal(pageRender.agentOf(ours), ours);
   assert.equal(pageRender.agentOf('Mozilla/5.0 (Macintosh) Chrome/130'), 'JobPilotto browser');
 });

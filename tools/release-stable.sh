@@ -4,7 +4,7 @@
 #   tools/release-stable.sh                 # the newest build
 #   tools/release-stable.sh desktop-v0.5.3
 set -euo pipefail
-repo=GarryOne/job-pilotto
+repo=GarryOne/jobadabra
 tag=${1:-$(gh release list -R "$repo" -L 20 --json tagName,isDraft -q '[.[] | select(.isDraft | not)][0].tagName')}
 
 # The Windows installer must be THIS build's own. When the windows job fails, desktop.yml's mac-only fallback

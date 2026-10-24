@@ -38,7 +38,7 @@ class BodyTests(unittest.TestCase):
         self.assertRegex(body, r'Previous stable\*\* \| \[0\.5\.249')
         self.assertIn('0.5.256', body)
         self.assertIn('0.5.254', body)
-        self.assertNotIn('0.5.249 · 2 Oct](https://github.com/GarryOne/job-pilotto/releases/tag/desktop-v0.5.256', body)
+        self.assertNotIn('0.5.249 · 2 Oct](https://github.com/GarryOne/jobadabra/releases/tag/desktop-v0.5.256', body)
 
     def test_empty_states_say_so(self):
         body = labels.channels_body([release(252, isPrerelease=False, isLatest=True)], set())

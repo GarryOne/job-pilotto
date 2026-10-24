@@ -13,7 +13,7 @@ const ext = file => fs.readFileSync(path.join(import.meta.dirname, '..', '..', '
 const BUTTONS = [...ext('popup.html').matchAll(/<button\b[^>]*>/g)].map(([tag]) => ({id: /id="([^"]+)"/.exec(tag)?.[1], hidden: /\shidden(\s|>|=)/.test(tag)}));
 
 const TABS = [
-  [{url: 'https://github.com/GarryOne/job-pilotto/pulls'}, false],                          // the owner's tab: no app, no mark
+  [{url: 'https://github.com/GarryOne/jobadabra/pulls'}, false],                          // the owner's tab: no app, no mark
   [{url: 'https://www.jobs.ch/en/vacancies/'}, false],
   [{url: 'chrome://extensions'}, false],
   [{}, false],
