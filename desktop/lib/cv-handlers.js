@@ -31,7 +31,7 @@ export function registerCvAndLettersHandlers(ctx) {
     try {
       let cost = 0;
       if (!cvlib.baseCv(storage)) {
-        if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
+        if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF or Word) in Settings first.'};
         cost += (await atUpload.ensure(storage, {client: ai, key, look: keepLook})).usd || 0;
       }
       const job = await pipeline.posting(storage, String(code));
@@ -74,7 +74,7 @@ export function registerCvAndLettersHandlers(ctx) {
   const billingNow = () => claudeCode.client(storage)?.billing || (storage.secret('ANTHROPIC_API_KEY') ? 'api' : '');
   ipcMain.handle('cvCheckStatus', () => (DEMO ? {...demo.cvCheck, billing: 'api'} : {...(cvCheck.saved(storage) || {}), billing: billingNow()}));
   ipcMain.handle('cvCheckRun', async () => {
-    if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
+    if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF or Word) in Settings first.'};
     let probe;
     try {
       probe = await cvLook.probeWindow(BrowserWindow, storage.path('cv.pdf'));
@@ -102,7 +102,7 @@ export function registerCvAndLettersHandlers(ctx) {
   handleImportant('importCv', 'Saving your CV', async () => {
     const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
     if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
-    if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
+    if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF or Word) first.'};
     try { return {ok: true, usd: (await atUpload.ensure(storage, {client: ai, key, look: keepLook, force: true})).usd || 0}; } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('viewBaseCv', async () => {
@@ -122,7 +122,7 @@ export function registerCvAndLettersHandlers(ctx) {
     if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     try {
       if (!cvlib.baseCv(storage)) {
-        if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
+        if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF or Word) first.'};
         await atUpload.ensure(storage, {client: ai, key, look: keepLook});
       }
       const {profile, answers} = await strategy.profileTexts(storage);

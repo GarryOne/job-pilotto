@@ -54,7 +54,7 @@ export function registerKitHandlers(ctx) {
     try {
       let cost = 0;
       if (!cvlib.baseCv(storage)) {
-        if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
+        if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF or Word) in Settings first.'};
         cost += (await atUpload.ensure(storage, {client: ai, key, look: keepLook})).usd || 0;
       }
       const job = await pipeline.posting(storage, code);
