@@ -49,6 +49,13 @@ class CentralRunsTest(unittest.TestCase):
                 scout_hiring.run(db, {'role_keywords': ['chef']}, asker=other_connection_writes)
             db.close()
 
+    def test_the_job_limit_covers_setup_both_budgets_and_the_publish_reserve(self):
+        import re
+        workflow = (Path(__file__).resolve().parents[1] / '.github' / 'workflows' / 'central-scout.yml').read_text()
+        limit = int(re.search(r'timeout-minutes: (\d+)', workflow).group(1))
+        setup, reserve = 6, 3   # minutes: checkout, installs, Common Crawl (3 min cap) before the scout; upload and cost report after
+        self.assertLessEqual(setup + (scout_core.CENTRAL_BUDGET_S + scout_core.VERIFY_BUDGET_S) / 60 + reserve, limit)
+
     def test_the_central_run_leaves_time_to_publish_inside_its_job(self):
         self.assertLessEqual(scout_core.CENTRAL_BUDGET_S / 60 + PUBLISH_MINUTES + 5, WORKFLOW_MINUTES)
         source = (Path(__file__).resolve().parents[1] / 'src' / 'scout.py').read_text()
