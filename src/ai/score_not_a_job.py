@@ -4,6 +4,8 @@ fixed answer basis.one_job (SCHEMA in src/ai/score.py) is False, so its score dr
 Tests: tests/test_score_not_a_job.py."""
 
 REASON = 'Not scored as a match: this text is not one job you can apply to'   # the row's line in place of the model's own, which praised a fit the score no longer has
+RECHECK = ("\n\nYour last answer said this text is not one job. Check it again: one posting for one role is one job, even when it starts with a company or client background "
+           "or ends with a list of benefits; only a list of several jobs, a category, search results or a company page is not. Answer basis.one_job again, and score as usual.")
 GAP = 'Not one job you can apply to: a list of jobs, a category or a search page'
 
 
