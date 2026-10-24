@@ -45,7 +45,10 @@ same page count and size, fonts and sizes 100% of the original's, pixel drift �
 - [x] Re-measure the 9 real samples on the Mac (local only), before/after to the owner: 8 readable PDFs, real tailoring, 90–100 where texts changed (today's template 13–61); two scored 100 with nothing changed, which led to summaries read per paragraph and the template when nothing is found (proof: desktop/test/cv-inplace.test.js)
 - [ ] Next step (separate PR): DOCX in place (owner 24 Oct 2026: edit the .docx in place, its PDF from our own renderer; picking the .docx on form upload is a later PR)
   - [x] lib/docx: read paragraphs, find items, rewrite in each word's own style, reorder bullet paragraphs; made-up Word CVs (proof: desktop/test/docx-edit.test.js)
-  - [ ] Renderer: a .docx drawn to PDF in the hidden window (docx-preview), office fonts from the same-width twins
+  - [x] Renderer: a .docx drawn to PDF in the hidden window (docx-preview), office fonts from the same-width twins (proof: desktop/test/docx-render.test.js)
+  - [x] LibreOffice add-on (owner 24 Oct 2026: "are we reinventing the wheel?" → LibreOffice, never in the installer, downloaded on use, Mac + Windows): pinned build, SHA-256 checked, unpacked into the data folder; real Mac run 24 s + 10 s per CV; on the real Word sample 2 pages like Word (ours 3) (proof: desktop/test/office.test.js)
+  - [x] Download bar on Profile → CV, look approved by the owner (side-by-side, 24 Oct 2026): share, MB, time left, steps, Cancel / Try again (proof: desktop/test/office-progress.test.js)
+  - [ ] Windows: prove the real download + msiexec /a + conversion on a Windows runner (manual workflow)
   - [ ] Picking a .docx: saved as cv.docx, drawn to cv.pdf, imported as today; accept list in renderer/cv-files.js (shared with session 35's setup card)
   - [ ] Tailor: the .docx path (prepare's room from the drawn PDF, edit, draw, review boxes on the drawn pages); template as fallback
   - [ ] Real Word sample re-measured locally (numbers only)
