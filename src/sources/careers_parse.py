@@ -10,6 +10,7 @@ import re
 import urllib.parse
 
 from . import ats
+from .. import country_codes
 from ..ai import meanings_pack
 
 MAX_JOB_PAGES = 40       # job pages read when the listing carries no data itself
@@ -157,7 +158,7 @@ def jsonld_jobs(markup, url):
                 if not isinstance(address, dict):
                     continue
                 country = _words(address.get('addressCountry'))
-                where.append(', '.join(part for part in (_words(address.get('addressLocality')) or _words(address.get('addressRegion')), COUNTRIES.get(country.upper(), country)) if part))
+                where.append(', '.join(part for part in (_words(address.get('addressLocality')) or _words(address.get('addressRegion')), COUNTRIES.get(country.upper()) or country_codes.name(country)) if part))
             remote = 'telecommute' in str(posting.get('jobLocationType') or '').lower()
             salary = posting.get('baseSalary') or {}
             value = salary.get('value') if isinstance(salary, dict) else None
