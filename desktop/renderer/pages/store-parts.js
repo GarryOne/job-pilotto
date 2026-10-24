@@ -22,9 +22,17 @@ function bindPrivacyPop() {
   const toggle = document.getElementById('privacy-toggle'), pop = document.getElementById('privacy-pop');
   if (privacyBound || !toggle || !pop) return;
   privacyBound = true;
-  const set = open => { pop.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); };
+  const set = open => {
+    pop.hidden = !open; toggle.setAttribute('aria-expanded', String(open));
+    if (!open) return;
+    // Centred on the row; in a short window slide it up or down so it stays inside (the arrow keeps pointing at the row).
+    pop.style.setProperty('--pop-shift', '0px');
+    const box = pop.getBoundingClientRect(), margin = 8;
+    pop.style.setProperty('--pop-shift', `${Math.max(margin - box.top, Math.min(0, window.innerHeight - margin - box.bottom))}px`);
+  };
   toggle.addEventListener('click', () => set(pop.hidden));
-  document.getElementById('privacy-close').addEventListener('click', () => { set(false); toggle.focus(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) set(false); });
+  // Focus goes back to the row for a keyboard close only; a mouse close must not paint the focus ring.
+  document.getElementById('privacy-close').addEventListener('click', e => { set(false); toggle.focus({focusVisible: e.detail === 0}); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { set(false); toggle.focus({focusVisible: true}); } });
   document.addEventListener('click', e => { if (!pop.hidden && !e.target.closest('.steps-privacy-wrap')) set(false); });
 }

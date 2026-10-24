@@ -2114,13 +2114,17 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .steps-privacy:hover { color: var(--on-rail); }
 /* The rail is narrow: the note opens to the right of it, over the content, with its own x; closed by x, Esc or a click elsewhere. */
 .steps-privacy-wrap { position: relative; }
-.privacy-pop { position: absolute; z-index: 20; bottom: 0; left: calc(100% + 40px); width: 260px; display: flex; gap: var(--sp-2); align-items: flex-start;
+.privacy-pop { --pop-shift: 0px; position: absolute; z-index: 20; top: 50%; left: calc(100% + var(--sp-3) + var(--sp-2)); transform: translateY(calc(-50% + var(--pop-shift))); width: 260px; display: flex; gap: var(--sp-2); align-items: flex-start;
   padding: 10px 10px 10px 12px; border-radius: var(--r-md); background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong);
   font-size: var(--fs-sm); line-height: 1.45; box-shadow: 0 8px 24px rgb(var(--shadow-rgb) / .25); }
 .privacy-pop[hidden] { display: none; }
+/* The arrow points at the "Encrypted" row (the row's centre, whatever the clamp shifted the card by); its tip sits just inside the gap. */
+.privacy-pop::before { content: ''; position: absolute; left: -6px; top: calc(50% - var(--pop-shift)); width: 10px; height: 10px; margin-top: -5px; transform: rotate(45deg);
+  background: var(--surface); border-left: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
 .privacy-pop p { margin: 0; flex: 1; }
 .privacy-pop .privacy-close { flex: none; width: 24px; height: 24px; color: var(--muted); }
-.steps-privacy:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: var(--r-sm); }
+/* Keyboard focus: the row lights up like a hovered nav row, no bright box (owner, 24 Oct 2026). */
+.steps-privacy:focus-visible { outline: none; color: var(--on-rail); background: var(--rail-hover); border-radius: var(--r-sm); }
 .steps-foot .wizard-stuck { font-weight: 600; color: var(--on-rail); padding: 12px 12px; }
 
 /* The version under the setup sidebar: one quiet line with an info icon, cut with … if long (the full text on hover). */
