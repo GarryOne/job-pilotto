@@ -105,5 +105,18 @@ class WiredTests(unittest.TestCase):
         self.assertEqual((len(jobs), state, entry['search_url']), (3, 'ok', HOME + 'it'))
 
 
+class OwnCountryTests(unittest.TestCase):
+    def test_a_general_board_proposed_for_one_country_places_the_jobs_that_name_no_place(self):
+        found = [{'id': '1', 'url': 'https://a.example/1', 'title': 'Dev', 'location': ''}, {'id': '2', 'url': 'https://a.example/2', 'title': 'Dev', 'location': 'Bălți'}]
+        board = {'name': 'A', 'host': 'a.example', 'countries': ['Moldova'], 'source_kind': 'general'}
+        self.assertEqual([job['location'] for job in found_boards._shaped(board, found)], ['Moldova', 'Bălți'])
+
+    def test_a_sector_or_multi_country_board_does_not_invent_a_place(self):
+        found = [{'id': '1', 'url': 'https://a.example/1', 'title': 'Dev', 'location': ''}]
+        for board in ({'countries': ['Moldova'], 'source_kind': 'sector'}, {'countries': ['Moldova', 'Ukraine'], 'source_kind': 'general'}, {'source_kind': 'general'}):
+            with self.subTest(board=board):
+                self.assertEqual(found_boards._shaped({'name': 'A', 'host': 'a.example', **board}, found)[0]['location'], '')
+
+
 if __name__ == '__main__':
     unittest.main()

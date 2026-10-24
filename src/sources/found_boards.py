@@ -115,9 +115,16 @@ def _read(board, search, fetch, route, early, show=None):
     return jobs, state, None
 
 
+def _own_country(board):
+    """The one country a general job board was proposed for, as the place of its jobs that name none (24 Oct 2026: the AI page reader read a Moldovan
+    board's IT field as 8 jobs with no place, and every one failed the place check). A sector or remote board lists jobs from anywhere: no place."""
+    countries = board.get('countries') or []
+    return countries[0] if board.get('source_kind') == 'general' and len(countries) == 1 else ''
+
+
 def _shaped(board, found):
     from .aggregators import _job
-    return [_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}", job['location'], job['url'],
+    return [_job(board['host'], job['id'] or job['url'], job['title'], job.get('employer') or f"via {board['name']}", job['location'] or _own_country(board), job['url'],
                  job.get('date_posted', ''), job.get('description', ''), job.get('remote'), job.get('salary', '')) for job in found]
 
 
@@ -174,14 +181,14 @@ def read_since(stamp):
             if (entry.get('last_read') or '') >= stamp}
 
 
-def _section(page, search, fetch, judge):
+def _section(board, page, search, fetch, judge):
     """(jobs, address) from the section of the board's home page the AI picks for the search's role; ([], None) with the page reader off (tests)."""
     terms = _terms(search, 1)
     if careers.READER is None or not page[1] or not terms:
         return [], None
     from ..ai import decide
     try:
-        return board_sections.read(page[1], page[0], terms[0], fetch, decide.decide, judge)
+        return board_sections.read(page[1], page[0], terms[0], fetch, decide.decide, judge, lambda found: _shaped(board, found))
     except Exception:  # noqa: BLE001 — a fallback never breaks the read
         return [], None
 
@@ -227,7 +234,7 @@ def _another_way(board, entry, proposed, search, fetch, judge, before, show=None
             entry['form_url'] = entry['search_url'] = template
             print(f"Job boards found: {board['name']} read through its own search form", flush=True)
             return again, state, relevant
-    listed, section = _section(page, search, fetch, judge)   # the board's own section for this kind of work (board_sections.py)
+    listed, section = _section(board, page, search, fetch, judge)   # the board's own section for this kind of work (board_sections.py)
     if listed:
         entry['search_url'] = section
         print(f"Job boards found: {board['name']} read from its own section", flush=True)

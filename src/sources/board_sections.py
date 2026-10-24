@@ -49,9 +49,10 @@ def pick(markup, page_url, role, decide):
     return (best + near)[:MAX_SECTIONS], [url for url, answer in pairs if answer == 'hub'][:MAX_HUBS]   # the exact field first, then close ones
 
 
-def read(page, address, role, fetch, decide, relevant):
+def read(page, address, role, fetch, decide, relevant, shape=lambda found: found):
     """(jobs, section address) from the board's sections reachable from this page (its markup, fetched at address): its own sections, else the
-    sections on one hub page. relevant(jobs) -> the jobs worth keeping; the first section giving some is returned with them (all its jobs)."""
+    sections on one hub page. shape(found) -> the jobs in the aggregators' shape (with the board's place for those that name none), relevant(shaped) -> the
+    jobs worth keeping; the first section giving some is returned, shaped, with all its jobs."""
     sections, hubs = pick(page, address, role, decide)
     for hub in hubs if not sections else []:
         hub_page = _page(hub, fetch)
@@ -64,9 +65,9 @@ def read(page, address, role, fetch, decide, relevant):
         found = careers.jsonld_jobs(listing, url) or careers._asked(url, listing, [], fetch) or careers.read_page_from(listing, url, fetch)
         if found:
             found = found + board_pages.more(url, listing, found, fetch, lambda markup, link: careers.jsonld_jobs(markup, link) or careers.read_page_from(
-                markup, link, fetch), relevant)
-        if found and relevant(found):
-            return found, url
+                markup, link, fetch), lambda some: relevant(shape(some)))
+        if found and relevant(shape(found)):
+            return shape(found), url
     return [], None
 
 
