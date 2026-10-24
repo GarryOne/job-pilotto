@@ -14,7 +14,7 @@ import unicodedata
 import urllib.request
 
 from . import ats, posting_text
-from .. import coverage, run_counts
+from .. import country_codes, coverage, run_counts
 from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config, place_regex
 from ..ai import batch_scope, providers
 from ..ai.providers.contract import detail, reason
@@ -287,7 +287,7 @@ def wanted_location(job):
     verdict = place_of(job)
     if verdict is not None:
         return verdict != 'out'   # 'vague': kept until its posting is read
-    where = job.get("location") or ""
+    where = country_codes.name(job.get("location") or "")   # a field that is only a country code ("MD") is that country, whichever reader gave it
     if mentions(PLACE, where):
         return True
     if not REMOTE_WANTED:
