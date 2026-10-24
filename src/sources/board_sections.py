@@ -1,6 +1,6 @@
 """A job board's own section for the user's kind of work, opened when its home or search page gave no relevant job (owner, 24 Oct 2026: a
 Moldovan board's home page was news, its IT section listed 100 jobs in the city; Moldova's search found 5 local jobs). The section is picked by the AI
-from the page's own links (meaning in any language and any kind of work, src/ai/decide.py), never a word list: each link is a 'section' for this role,
+from the page's own links (meaning in any language and any kind of work, src/ai/decide.py), never a word list: each link is the 'best' field for this role, a 'near' one,
 a 'hub' (all jobs, all categories: one more hop) or 'other'. Sections are read like any listing page (JobPosting data, else the AI page reader, which
 leaves a recipe), at most MAX_SECTIONS per board, through the site's robots.txt. Tests: tests/test_board_sections.py."""
 import urllib.parse
@@ -11,11 +11,13 @@ MAX_SECTIONS = 2      # section pages read per board
 MAX_HUBS = 1          # hub pages opened per board (a link to "all categories", then the sections on it)
 MAX_LINKS = 80        # links of one page sent to the AI
 MAX_LABEL = 70        # a longer link text is a sentence, not a section name
-ANSWERS = ('section', 'hub', 'other')
-TOPIC = 'board section'
-TASK = ('The user searches for jobs as "{role}". Each item is a link on a job board: its text and its address path. Answer "section" if it opens the '
-        "board's jobs for that kind of work (the category or field a person in that role would browse, whatever the language), \"hub\" if it opens the "
-        'board\'s list of all jobs or of all categories/fields, else "other" (news, employers, CV tools, log in, one job, a city only, a language).')
+ANSWERS = ('best', 'near', 'hub', 'other')
+TOPIC = 'board field link'
+TASK = ('The user searches for jobs as "{role}". Each item is a link on a job board: its text and its address path. Answer "best" only for a link '
+        "that opens the board's own category or field of exactly this kind of work (for a software engineer the board's IT / software / programming "
+        'field, whatever the language): usually one link on a board, at most two. "near" if it opens a field that is close to it (engineering, web '
+        'design, data, telecom). "hub" if it opens the board\'s list of all jobs or of all categories/fields. Else "other": every unrelated field '
+        '(sales, food, building, finance, ...), news, employers, CV tools, log in, one job, a city only, a language.')
 
 
 def candidates(markup, page_url):
@@ -43,7 +45,8 @@ def pick(markup, page_url, role, decide):
     answers = decide(TOPIC, items, ANSWERS, TASK.format(role=role)) or {}
     chosen = {key: answers.get(key) for key in items}
     pairs = [(url, chosen[f'{role}|{text}|{urllib.parse.urlsplit(url).path}']) for url, text in found]
-    return [url for url, answer in pairs if answer == 'section'][:MAX_SECTIONS], [url for url, answer in pairs if answer == 'hub'][:MAX_HUBS]
+    best, near = [url for url, answer in pairs if answer == 'best'], [url for url, answer in pairs if answer == 'near']
+    return (best + near)[:MAX_SECTIONS], [url for url, answer in pairs if answer == 'hub'][:MAX_HUBS]   # the exact field first, then close ones
 
 
 def read(page, address, role, fetch, decide, relevant):
