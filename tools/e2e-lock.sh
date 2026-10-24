@@ -11,23 +11,30 @@ repo="${GITHUB_REPOSITORY:?}"; ref="e2e-locks/${key}"
 me="run=${GITHUB_RUN_ID:?} job=${GITHUB_JOB:?}"
 poll="${E2E_LOCK_POLL:-20}"; max="${E2E_LOCK_MAX:-10800}"   # three hours, then the job fails by name instead of hanging
 
-holder_sha() { gh api "repos/${repo}/git/ref/${ref}" --jq .object.sha 2>/dev/null; }
+# gh prints an error body on stdout when a call fails, so only a real 40-hex sha counts as "someone holds it"
+holder_sha() { local s; s="$(gh api "repos/${repo}/git/ref/${ref}" --jq .object.sha 2>/dev/null)" || return 0; printf '%s' "$s" | grep -E '^[0-9a-f]{40}$' || true; }
 holder_msg() { gh api "repos/${repo}/git/commits/$1" --jq .message 2>/dev/null; }
 drop() { gh api -X DELETE "repos/${repo}/git/refs/${ref}" >/dev/null 2>&1; }
 
 acquire() {
-  local tree commit start held msg run status
+  local tree commit start held msg run status made fails=0
   tree="$(gh api "repos/${repo}/git/commits/${GITHUB_SHA:?}" --jq .tree.sha)" || { echo "e2e-lock: cannot read the tree of ${GITHUB_SHA}" >&2; exit 1; }
   start=$SECONDS; said=-60
   while true; do
     commit="$(gh api -X POST "repos/${repo}/git/commits" -f message="${me}" -f tree="${tree}" --jq .sha)" || { echo "e2e-lock: cannot create the lock commit" >&2; exit 1; }
-    if gh api -X POST "repos/${repo}/git/refs" -f ref="refs/${ref}" -f sha="${commit}" >/dev/null 2>&1; then
-      echo "e2e-lock: ${key} taken by ${me}"; return 0
-    fi
+    made="$(gh api -X POST "repos/${repo}/git/refs" -f ref="refs/${ref}" -f sha="${commit}" 2>&1)" && { echo "e2e-lock: ${key} taken by ${me}"; return 0; }
     held="$(holder_sha)"
-    if [ -z "$held" ]; then continue; fi   # released between our two calls: try again at once
+    if [ -z "$held" ]; then   # nobody holds it, yet creating it failed: that is an error to read, not a lock to wait for (beta 16, 24 Oct 2026)
+      fails=$((fails + 1)); echo "e2e-lock: could not create refs/${ref} (try ${fails}): ${made}" >&2
+      if [ "$fails" -ge 3 ]; then exit 1; fi
+      sleep "$poll"; continue
+    fi
     msg="$(holder_msg "$held")"; run="$(printf '%s' "$msg" | sed -n 's/^run=\([0-9]*\).*/\1/p' | head -n1)"
-    status="$(gh api "repos/${repo}/actions/runs/${run:-0}" --jq .status 2>/dev/null || echo gone)"
+    status=gone
+    if [ -n "$run" ]; then   # gh prints the error body on stdout: a 404 is a run that is gone, any other failure is "unknown" and keeps waiting
+      out="$(gh api "repos/${repo}/actions/runs/${run}" --jq .status 2>&1)"; rc=$?
+      if [ $rc -eq 0 ] && printf '%s' "$out" | grep -qE '^[a-z_]+$'; then status="$out"; elif printf '%s' "$out" | grep -q 'Not Found'; then status=gone; else status=unknown; fi
+    fi
     if [ "$status" = "completed" ] || [ "$status" = "gone" ]; then
       echo "e2e-lock: ${key} was held by ${msg} (run ${status}): taking it over"
       [ "$(holder_sha)" = "$held" ] && drop
