@@ -1,5 +1,6 @@
 // The words and states of Always on "on our servers" (owner, 17 Oct 2026: one name everywhere; ON by default for a trial install until it presses Skip). Pure: renderer/pages/hosted.js draws it.
 // States: on with an e-mail, on without one (asks for it first), off (Skip or turned off), paused (14 days idle, budget, limit), trial over. Guard: test/hosted-words.test.js.
+import {promise} from './pro-promise.js';
 export const NAME = 'Always on: on our servers';
 export const SUBTITLE = 'New matches every morning, even when your Mac is off';
 export const STORED = 'Your profile is stored encrypted on our servers. Turn it off anytime = deleted.';
@@ -29,8 +30,8 @@ export function model(mine = {}, schedule = null, now = new Date()) {
   if (schedule?.state === 'paused') {
     const why = {
       'inactive': ['Paused: you have not opened Jobadabra for 14 days. Resume to get matches again.', 'resume'],
-      'trial-over': ['Your free trial is over. Get Pro to keep Always on running.', null],
-      'budget': ['Paused: the free AI in your trial is used up. Get Pro to keep Always on running.', null],
+      'trial-over': [`Your free trial is over. Pro is a ${promise()}. Always on keeps running on your AI credit; top-ups are one-time too.`, null],
+      'budget': [`Paused: the free AI in your trial is used up. Pro is a ${promise()}. Always on keeps running on your AI credit; top-ups are one-time too.`, null],
       'guard': ['Paused: it reached this month\'s limit. It continues next month.', null],
     }[schedule.pause_reason] || ['Paused. Resume to get matches again.', 'resume'];
     return {state: `paused-${schedule.pause_reason || 'other'}`, pill: ['Paused', 'warn'], line: why[0], asksEmail: false, button: why[1], off: true, download: true};

@@ -33,7 +33,7 @@ test('paused states say why and what to do: resume after 14 idle days, Get Pro w
   assert.deepEqual([idle.pill[0], idle.button], ['Paused', 'resume']);
   assert.match(idle.line, /14 days/);
   assert.deepEqual([over.pill[0], over.button], ['Paused', null]);
-  assert.match(over.line, /Get Pro to keep Always on running/);
+  assert.match(over.line, /Pro is a one-time payment, no subscription. Always on keeps running/);
   assert.match(model(mine, {state: 'paused', pause_reason: 'guard'}, now).line, /this month's limit/);
 });
 

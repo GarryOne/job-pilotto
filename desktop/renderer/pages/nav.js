@@ -1,5 +1,6 @@
 // Navigation: pages, ⌘R memory, the ⌘K palette.
 import {openPalette} from '../palette.js';
+import {PROMISE} from '../pro-promise.js';
 import {openQuestionReview} from './question-review.js';
 import {buttonEntry, reveal} from './palette-busy.js';
 import {COMMAND_KIND, KIND, TASK_BUTTONS, kindOf, lastActivity, openActivity, prepareActions, unqueue} from './activity.js';
@@ -149,7 +150,7 @@ export function paletteCommands() {
     const goPlan = () => { openSetting('plan'); };
     if (shared.plan.plan === 'pro') { add('Settings', 'Plan and AI credit', 'Your AI credit left and your plan', 'pro plan credit ai balance license', goPlan); add('Settings', 'Add AI credit', 'A one-time top-up: $5, $10 or $20', 'pro top up topup credit buy ai more', goPlan); }
     else {
-      add('Settings', 'Upgrade to Pro', 'One-time payment, no subscription', 'pro upgrade plan price buy pay unlimited license', goPlan);
+      add('Settings', 'Upgrade to Pro', PROMISE, 'pro upgrade plan price buy pay unlimited license', goPlan);
       add('Settings', 'I have Pro', 'Add this computer with a code sent by e-mail', 'pro sign in signin code add device computer have', () => { goPlan(); setTimeout(() => $('plan-have-pro')?.click(), 300); });
     }
   }
