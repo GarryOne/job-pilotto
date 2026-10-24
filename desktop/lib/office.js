@@ -33,8 +33,8 @@ export function findOffice(dir, {platform = process.platform, exists = fs.exists
 }
 
 // Download to file, hashing as it goes. onProgress({step: 'download', share, bytes, total}) as it arrives. -> sha256 hex
-async function download(url, file, {fetchImpl, onProgress}) {
-  const response = await fetchImpl(url);
+async function download(url, file, {fetchImpl, onProgress, signal}) {
+  const response = await fetchImpl(url, {signal});
   if (!response.ok || !response.body) throw new Error(`LibreOffice could not be downloaded (HTTP ${response.status}).`);
   const total = Number(response.headers.get('content-length')) || 0, hash = crypto.createHash('sha256'), out = fs.createWriteStream(file);
   let got = 0;
@@ -51,17 +51,18 @@ async function download(url, file, {fetchImpl, onProgress}) {
 let pending = null;
 // Download, check and unpack LibreOffice into dir (once; a second call while one runs waits for it). -> soffice path
 // key: `${platform}-${arch}`; run: execFile as a promise (a stub in tests); work: a temporary folder.
-// onProgress({step, share, bytes, total}): step is 'download' (share 0-1 when the size is known), 'check', 'unpack', then 'ready'.
-export function installOffice(dir, {key = `${process.platform}-${process.arch}`, fetchImpl = globalThis.fetch, run = runFile, onProgress, work = os.tmpdir()} = {}) {
+// signal: an AbortSignal (Cancel). onProgress({step, share, bytes, total}): step is 'download' (share 0-1 when the size is known), 'check', 'unpack', then 'ready'.
+export function installOffice(dir, {key = `${process.platform}-${process.arch}`, fetchImpl = globalThis.fetch, run = runFile, onProgress, signal, work = os.tmpdir()} = {}) {
   pending ??= (async () => {
     const build = BUILDS[key];
     if (!build) throw new Error(`No LibreOffice build for ${key}; the app's own renderer is used.`);
     const platform = key.split('-')[0];
     const temp = fs.mkdtempSync(path.join(work, 'jp-office-')), file = path.join(temp, path.basename(build));
     try {
-      const want = (await (await fetchImpl(`${BASE}/${build}.sha256`)).text()).trim().split(/\s+/)[0];
+      const want = (await (await fetchImpl(`${BASE}/${build}.sha256`, {signal})).text()).trim().split(/\s+/)[0];
       if (!/^[0-9a-f]{64}$/.test(want)) throw new Error('LibreOffice\'s checksum could not be read; nothing was installed.');
-      const got = await download(`${BASE}/${build}`, file, {fetchImpl, onProgress});
+      const got = await download(`${BASE}/${build}`, file, {fetchImpl, onProgress, signal});
+      signal?.throwIfAborted();
       onProgress?.({step: 'check'});
       if (got !== want) throw new Error('The LibreOffice download did not match its checksum; nothing was installed.');
       onProgress?.({step: 'unpack'});
