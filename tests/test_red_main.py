@@ -48,7 +48,8 @@ CLASSIFIED = {
     'CI · Sentry fixer': 'ignored: fixer loop', 'UI loop · Finder self-review': 'ignored: UI loop',
     'Pipeline · Find new jobs': 'ignored: product pipeline', 'Pipeline · Gmail and Calendar': 'ignored: product pipeline', 'Pipeline · Find new employers': 'ignored: product pipeline',
     'Product brain · Daily brief': 'ignored: report',
-    'Central scout': "ignored: scheduled every 6 h; a failed run tells the owner on Telegram by itself and must never block a push",
+    'Lab CI': "ignored: lab PRs (dispatched by ship.sh), a 20-minute sweep and a daily run of the private lab's tests; it never runs on a push to main and must never block a landing here",
+    'Central scout':"ignored: scheduled every 6 h; a failed run tells the owner on Telegram by itself and must never block a push",
 }
 
 
