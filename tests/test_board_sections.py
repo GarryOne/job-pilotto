@@ -47,8 +47,15 @@ class PickTests(unittest.TestCase):
         self.assertEqual([text for _, text in found], ['Știri', 'Angajatori', 'Tech și programare', 'Vânzări', 'Toate joburile'])
 
     def test_the_ai_answer_picks_sections_and_hubs(self):
-        decide = decider({'Tech și programare': 'section', 'Toate joburile': 'hub'})
+        decide = decider({'Tech și programare': 'best', 'Toate joburile': 'hub'})
         self.assertEqual(board_sections.pick(NAV, HOME, 'software engineer', decide), (['https://jobs.example/it'], ['https://jobs.example/lucrari']))
+
+
+    def test_the_exact_field_comes_before_near_ones_whatever_the_page_order(self):
+        """24 Oct 2026: the AI marked 21 of a board's fields as sections and the first two in page order (acquisitions, naval) were read, never IT."""
+        decide = decider({'Știri': 'near', 'Angajatori': 'near', 'Vânzări': 'near', 'Tech și programare': 'best'})
+        sections, _ = board_sections.pick(NAV, HOME, 'software engineer', decide)
+        self.assertEqual(sections, ['https://jobs.example/it', 'https://jobs.example/stiri'])
 
     def test_no_ai_answer_picks_nothing(self):
         self.assertEqual(board_sections.pick(NAV, HOME, 'software engineer', lambda *a: None), ([], []))
@@ -65,21 +72,21 @@ class ReadTests(unittest.TestCase):
             return board_sections.read(home, HOME, 'software engineer', fetcher(pages), decide, lambda jobs: jobs)
 
     def test_a_static_section_page_gives_its_jobs(self):
-        jobs, url = self.read({'https://jobs.example/it': SECTION}, decider({'Tech și programare': 'section'}))
+        jobs, url = self.read({'https://jobs.example/it': SECTION}, decider({'Tech și programare': 'best'}))
         self.assertEqual((len(jobs), url), (3, 'https://jobs.example/it'))
 
     def test_a_hub_is_opened_and_its_section_read(self):
         hub = '<a href="/it">Tech și programare</a><a href="/vanzari">Vânzări</a>'
         jobs, url = self.read({'https://jobs.example/lucrari': hub, 'https://jobs.example/it': SECTION},
-                              decider({'Toate joburile': 'hub', 'Tech și programare': 'section'}))
+                              decider({'Toate joburile': 'hub', 'Tech și programare': 'best'}))
         self.assertEqual((len(jobs), url), (3, 'https://jobs.example/it'))
 
     def test_a_section_built_by_scripts_gives_nothing_and_breaks_nothing(self):
-        self.assertEqual(self.read({'https://jobs.example/it': SHELL}, decider({'Tech și programare': 'section'})), ([], None))
+        self.assertEqual(self.read({'https://jobs.example/it': SHELL}, decider({'Tech și programare': 'best'})), ([], None))
 
     def test_a_section_robots_txt_forbids_is_not_fetched(self):
         with mock.patch.object(board_pages, 'allowed', return_value=False):
-            self.assertEqual(board_sections.read(NAV, HOME, 'x', fetcher({'https://jobs.example/it': SECTION}), decider({'Tech și programare': 'section'}),
+            self.assertEqual(board_sections.read(NAV, HOME, 'x', fetcher({'https://jobs.example/it': SECTION}), decider({'Tech și programare': 'best'}),
                                                  lambda jobs: jobs), ([], None))
 
 
@@ -89,7 +96,7 @@ class WiredTests(unittest.TestCase):
         search = {'jobs_board_search_queries': 'software engineer'}
         careers.READER = 'auto'
         try:
-            with mock.patch.object(board_pages, 'allowed', return_value=True), mock.patch('src.ai.decide.decide', decider({'Tech și programare': 'section'})):
+            with mock.patch.object(board_pages, 'allowed', return_value=True), mock.patch('src.ai.decide.decide', decider({'Tech și programare': 'best'})):
                 entry = {}
                 jobs, state, relevant = found_boards._another_way(board, entry, board['search_url'], search, fetcher({HOME: NAV, HOME + 'it': SECTION}),
                                                                   lambda found: found, ([], 'empty', []))
