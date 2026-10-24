@@ -46,7 +46,7 @@ ship_pr_land() {
   ship_pr_push
   if [ -z "$n" ]; then
     title="${SHIP_PR_TITLE:-$(bash "$tools/pr-title.sh" origin/main)}"   # the newest commit that is not a "Move ..." split, or --title= (18 Oct 2026)
-    who="$(session_name)"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"   # the session that opened it, short (owner, 15 Oct 2026; tools/session-name.sh)
+    who="$(session_name)"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] ${title#"[${who#job-pilotto-}] "}"   # (a --title already starting with the tag keeps one: 24 Oct 2026, #1750 read "[d8] [d8] ...") the session that opened it, short (owner, 15 Oct 2026; tools/session-name.sh)
     [ -n "${SHIP_PR_BODY:-}" ] || step "no --body=<file>: the PR shows the subject, the facts and the commit folded; a 5-second summary goes in a file (CLAUDE.md \"PR descriptions\")"
     body="$(bash "$tools/pr-body.sh" origin/main ${SHIP_PR_BODY:+"--body=$SHIP_PR_BODY"})"   # the summary first, the facts, the commit folded (tools/pr-body.sh)
     rows="$(git log --format='%(trailers:key=Pool-row,valueonly)' origin/main..HEAD | grep -v '^$' | grep -iv '^none' | sort -u || true)"   # the pool rows this PR fixes (the Pool-row lines)
@@ -59,7 +59,7 @@ ship_pr_land() {
       body="$(bash "$tools/pr-body.sh" origin/main "--body=$SHIP_PR_BODY")" && gh pr edit "$n" --body "$body" >/dev/null 2>&1 && step "refreshed the description of #$n from --body" || step "could not refresh the description of #$n (the old one stays)"
     fi
     if [ -n "${SHIP_PR_TITLE:-}" ]; then   # --title= on a PR that is already open: its title is replaced (only then)
-      who="$(session_name)"; title="$SHIP_PR_TITLE"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"
+      who="$(session_name)"; title="$SHIP_PR_TITLE"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] ${title#"[${who#job-pilotto-}] "}"
       gh pr edit "$n" --title "$title" >/dev/null 2>&1 && step "retitled #$n" || step "could not retitle #$n (the old title stays)"
     else   # no --title: still keep the "[xx]" tag (21 Oct 2026: site#18 and #19 were red for a missing tag, opened or retitled by hand): add it when the title lacks one
       who="$(session_name)"; title="$(gh pr view "$n" --json title --jq .title 2>/dev/null || true)"

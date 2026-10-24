@@ -93,6 +93,16 @@ class ShipPrTest(ShipFixture):
         self.pr_ship(open_pr, '--title=Better words')
         self.assertIn('pr edit 1 --title Better words', ' | '.join(self.calls()))
 
+    def test_a_title_that_already_has_the_session_tag_keeps_one(self):
+        # 24 Oct 2026: --title="[d8] ..." became "[d8] [d8] ..." (#1750), on a new PR and on a retitle.
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        self.pr_ship(None, '--title=[9f] Tagged words', JOB_PILOTTO_SESSION='job-pilotto-9f')
+        self.assertIn('--title [9f] Tagged words --body', ' | '.join(self.calls()))
+        self.change(self.tree, 'more.txt', 'z\n', 'More')
+        self.pr_ship({'state': 'OPEN', 'head': 'topic'}, '--title=[9f] Tagged again', JOB_PILOTTO_SESSION='job-pilotto-9f')
+        self.assertIn('pr edit 1 --title [9f] Tagged again', ' | '.join(self.calls()))
+        self.assertNotIn('[9f] [9f]', ' | '.join(self.calls()))
+
     def test_a_reship_adds_the_session_tag_to_an_open_pr_that_lacks_it(self):
         # 21 Oct 2026: site#18 and #19 were opened or retitled by hand without the "[xx] " tag
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
