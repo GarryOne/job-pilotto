@@ -10,6 +10,7 @@ import {loadAnswersFacts} from './answers-facts.js';
 import {pick} from '../tab-choice.js';
 import {initExperience, loadExperience} from './experience.js';
 import {loadExperienceProfile} from './experience-profile.js';
+import {startOfficeProgress} from './office-progress.js';
 import {loadLetterStyle} from './letter-style.js';
 import {initLetter, loadLetter} from './base-letter.js';
 import {moreButton, openMenu} from '../components.js';
@@ -185,6 +186,7 @@ export async function init() {
   initLetter({openAiSettings: () => openSetting('ai')});
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
   initExperience();
+  startOfficeProgress();   // the LibreOffice download for a Word CV, under the CV card (office-progress.js)
   mountProfileMenu($('profile-more'), profileTab);   // Fill from my CV and View source in Notion, quiet in the header (profile-menu.js)
   $('answers-review').addEventListener('click', answersMenu);
   initDetailsRead({contact: contactChangedIn, facts: factsChangedIn});   // Your details read first: summaries, a quiet Edit per card, Done (pages/details-read.js)
