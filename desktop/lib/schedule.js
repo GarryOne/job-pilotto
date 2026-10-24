@@ -8,7 +8,7 @@ export const HEADS_UP_MS = 60 * 1000;  // "starts in a minute" notice before a s
 // When the next scheduled search is due (ms), or null when none is scheduled on this Mac.
 export function nextAt(settings) {
   if (settings.autoSearch === false || !settings.setupDone || settings.cloud?.repo) return null; // cloud runs instead
-  if (!settings.lastSearchAt) return null;  // the first search starts when setup finishes, on screen
+  if (!settings.lastSearchAt) return null;  // the first search starts when the person presses Find jobs on the Jobs card
   const hours = cadence(settings).search;
   if (!hours) return null;  // searches only when asked
   return Date.parse(settings.lastSearchAt) + hours * 3600 * 1000;

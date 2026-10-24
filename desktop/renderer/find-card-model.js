@@ -51,6 +51,11 @@ export function employersRead(log = []) {
   return null;
 }
 
+// The bar under the numbers: counted once the engine says "N of M" employers, a sliding bar before (the search is working, the count is not known yet).
+export const readProgressModel = employers => (employers
+  ? {kind: 'count', done: employers.done, total: employers.total, percent: employers.total ? Math.max(2, Math.min(100, Math.round(100 * employers.done / employers.total))) : 2}
+  : {kind: 'indeterminate'});
+
 // running: window.pilot.runs().running; last: the newest finished search run; listed/scored: the Jobs list's counts (kept for the none state); finishedHere: a search ended while this window was open.
 export function findCard({running = null, last = null, lastSearchAt = '', listed = 0, scored = 0, finishedHere = false} = {}) {
   const searching = running && (running.kind || 'search') === 'search';

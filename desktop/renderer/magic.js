@@ -25,7 +25,9 @@ function sparkle(card, x, y, spec) {
   setTimeout(() => spark.remove(), 1000);
 }
 
-function wire(card) {
+export function wire(card) {
+  if (card.dataset.magicWired) return;   // a card drawn again keeps one set of listeners
+  card.dataset.magicWired = '1';
   const point = event => { const box = card.getBoundingClientRect(); return {x: event.clientX - box.left, y: event.clientY - box.top}; };
   let queued = null, lastTrail = 0;
   card.addEventListener('pointermove', event => {

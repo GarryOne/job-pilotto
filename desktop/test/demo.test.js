@@ -60,9 +60,9 @@ test('demo mode answers the outside-reaching actions without running them', asyn
   const registered = {};
   const handle = demo.guard((name, listener) => { registered[name] = listener; });
   let ran = 0;
-  for (const name of ['notionOAuth', 'refresh', 'applyWithClaude', 'telegramConnect', 'lookAround', 'jobs']) handle(name, () => { ran++; return 'real'; });
+  for (const name of ['notionOAuth', 'checkMail', 'applyWithClaude', 'telegramConnect', 'lookAround', 'jobs']) handle(name, () => { ran++; return 'real'; });
   assert.deepEqual(await registered.notionOAuth(), {ok: false, error: demo.TEXT, text: demo.TEXT});
-  assert.equal((await registered.refresh()).ok, false);
+  assert.equal((await registered.checkMail()).ok, false);
   assert.equal((await registered.applyWithClaude()).ok, false);
   assert.equal((await registered.lookAround()).ok, false, 'no demo inside the demo');
   assert.equal(registered.jobs(), 'real', 'reading the demo data still works');

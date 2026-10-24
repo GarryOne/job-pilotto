@@ -49,7 +49,7 @@ export async function run(ctx) {
   let rows = [], appJobs = [];
   ctx.findings = [];
   await ensureSetUp(ctx);
-  // Set up through the wizard (the stand-in: standInFromWizard; or an empty test page), the app starts its first search: the Jobs checks below wait for it to end.
+  // Set up through the wizard (the stand-in: standInFromWizard; or an empty test page), the wizard run presses Find jobs (e2e/lib/wizard.mjs): the Jobs checks below wait for that first search to end.
   if (!ctx.built) await ctx.run('the first search after the setup has ended', () => quiet(ctx, {forMs: 3000, maxMs: 300000}), {needs: ctx.needs, critical: true});
 
   const check = async label => {   // one Jobs check; ends when the task is no longer running

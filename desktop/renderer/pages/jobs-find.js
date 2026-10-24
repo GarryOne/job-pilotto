@@ -1,9 +1,11 @@
-// Jobs page, the "Find jobs" card on top (owner, 16 Oct 2026): a big button on an empty first run, then the live progress of the search (steps, last
+// Jobs page, the "Find jobs" card on top (owner, 16 Oct 2026; centered magic card + moving searching card 24 Oct 2026): a big card on an empty first run, then the live progress of the search (steps, last
 // lines, counts) with the list growing below it, then a one-line result; a failure says what to do. Built from the shared header, number strip, pills and
 // rows (no new look). Data: renderer/find-card-model.js. Guarded by: test/find-card.test.js.
-import {cardHead, el, liveRows, numberStrip, pill, setCount} from '../components.js';
+import {cardHead, el, liveRows, numberStrip, pill, setCount, tile} from '../components.js';
+import {icon} from '../icons.js';
+import {wire} from '../magic.js';
 import {jobCounts} from '../jobs-view.js';
-import {findCard} from '../find-card-model.js';
+import {findCard, readProgressModel} from '../find-card-model.js';
 import {jobsState} from './jobs-state.js';
 import {$, show} from './core.js';
 
@@ -26,32 +28,46 @@ function runNumbers(model, live = true) {
   return strip;
 }
 
-// Employers read as progress (bar + "1,953 of 2,251"). The raw count of downloaded listings is not shown: 130k+ is noise (owner, 19 Oct 2026).
+// Employers read as progress (bar + "1,953 of 2,251"); before the first count the bar slides, so the card never looks still. The raw count of
+// downloaded listings is not shown: 130k+ is noise (owner, 19 Oct 2026).
 function readProgress(model) {
-  const box = el('div', 'find-progress'), n = value => value.toLocaleString('en-US');
-  if (model.employers) {
-    const {done, total} = model.employers, head = el('div', 'progress-head'), bar = el('div', 'bar'), fill = el('span');
-    fill.style.width = `${total ? Math.max(2, Math.min(100, Math.round(100 * done / total))) : 2}%`;
-    bar.append(fill);
-    head.append(el('span', '', 'Employers read'), el('span', 'muted', `${n(done)} / ${n(total)}`));
-    box.append(head, bar);
-  }
+  const box = el('div', 'find-progress'), n = value => value.toLocaleString('en-US'), progress = readProgressModel(model.employers);
+  const head = el('div', 'progress-head'), bar = el('div', progress.kind === 'count' ? 'bar' : 'bar is-sliding'), fill = el('span');
+  if (progress.kind === 'count') fill.style.width = `${progress.percent}%`;
+  bar.append(fill);
+  head.append(el('span', '', 'Employers read'), el('span', 'muted', progress.kind === 'count' ? `${n(progress.done)} / ${n(progress.total)}` : 'Starting…'));
+  box.append(head, bar);
   return box;
+}
+
+// The empty first run: the shared magic card (renderer/magic.css, like the Welcome card), the whole card is the Find jobs button (owner, 24 Oct 2026).
+function drawEmpty(card) {
+  card.className = 'card find-card is-empty magic';
+  const twinkles = [0, 1, 2].map(() => Object.assign(el('span', 'magic-twinkle'), {ariaHidden: 'true'}));
+  twinkles.forEach(node => node.append(icon('sparkle')));
+  card.replaceChildren(...twinkles, tile('search'), el('span', 'eyebrow', 'Get started'), el('h2', 'magic-title', 'Find jobs'),
+    el('p', 'muted subtitle magic-sub', 'Reads employer sites and job boards, scores each job against your profile, and lists the first matches in under a minute. The rest keeps coming.'),
+    button('Find jobs', () => start(), 'primary magic-go'));
+  wire(card);
 }
 
 function draw(model) {
   const card = $('find-card');
   card.className = `card find-card is-${model.state}`;
   if (model.state === 'empty') {
-    const big = button('Find my first jobs', () => start(), 'primary find-big');
-    card.replaceChildren(cardHead('Get started', 'Find your first jobs', {subtitles: ['Reads employer sites and job boards, scores each job against your profile, and lists the first matches in under a minute. The rest keeps coming.']}), big);
+    drawEmpty(card);
   } else if (model.state === 'searching') {
     const chips = el('div', 'chip-row');
-    chips.append(...model.chips.map(chip => pill(chip.label, chip.state === 'active' ? 'signal' : chip.state === 'done' ? 'good' : 'neutral', {dot: chip.state === 'active'})));
+    chips.append(...model.chips.map(chip => {
+      const node = pill(chip.label, chip.state === 'active' ? 'signal' : chip.state === 'done' ? 'good' : 'neutral', {dot: chip.state === 'active'});
+      node.classList.add('find-step', `is-${chip.state}`);   // the active step pulses, a finished one shows a tick (find-card.css)
+      return node;
+    }));
     const lines = el('ul', 'run-card-rows');
     lines.append(...liveRows(model.lines));
-    card.replaceChildren(cardHead('Searching', model.matches ? `${model.matches.toLocaleString('en-US')} possible jobs found so far` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Jobadabra; the list below fills as jobs are found; a job gets its score once it is checked.']}),
-      runNumbers(model), readProgress(model), chips, lines);
+    const head = cardHead('Searching', model.matches ? `${model.matches.toLocaleString('en-US')} possible jobs found so far` : 'Looking for your first jobs…', {subtitles: ['The numbers are this search only. You can keep using Jobadabra; the list below fills as jobs are found; a job gets its score once it is checked.']});
+    head.prepend(Object.assign(el('span', 'spinner'), {ariaHidden: 'true'}));
+    card.replaceChildren(head, runNumbers(model), readProgress(model), chips, lines);
   } else if (model.state === 'done') {
     const ran = model.looked || model.matches || model.scored;   // an older run has no counts line: the list's count, as before
     card.replaceChildren(cardHead('Search done', ran ? `${model.scored} scored` : `${model.listed} match${model.listed === 1 ? '' : 'es'} on your list`, {subtitles: [model.waiting ? `${model.waiting.toLocaleString('en-US')} more possible job${model.waiting === 1 ? ' is' : 's are'} still waiting. Run Find jobs again to check ${model.waiting === 1 ? 'it' : 'them'}.` : 'The best matches are first. Find jobs again any time.']}),

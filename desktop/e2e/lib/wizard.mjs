@@ -97,6 +97,13 @@ export async function runWizard(ctx) {
     if (!state.hasProfile) throw new Error('the strategy was not kept on this Mac');
     if (!fs.existsSync(path.join(ctx.profile, 'profile.md'))) throw new Error('profile.md is not in the app folder');
   }, {needs: ctx.needs});
+  // Nothing starts behind the person's back (owner, 24 Oct 2026): Jobs shows the big Find jobs card, and the first search starts when it is pressed.
+  await ctx.run('Jobs opens on the Find jobs card; pressing it starts the first search', async () => {
+    await page.waitForFunction(() => document.body.dataset.findCard === 'empty', null, {timeout: 30000});
+    if (!(await page.locator('#find-card .magic-go').count())) throw new Error('the Find jobs card has no button');
+    await page.click('#find-card .magic-go');
+    await page.waitForFunction(() => document.body.dataset.findCard === 'searching', null, {timeout: 30000});
+  }, {needs: ctx.needs});
   // A new install (the wizard suite: no store at launch, ctx.newInstall): the app gives it this Mac at first start (lib/store-handlers.js settleStore),
   // so it is never "trying"; on the stand-in it then connects Notion while the store is still empty, and the store becomes Notion ("Start using Notion").
   if (ctx.newInstall) {

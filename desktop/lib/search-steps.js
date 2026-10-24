@@ -16,6 +16,9 @@ export function scoutDue(settings, trigger, now = Date.now(), force = false) {
   return now - Date.parse(settings.lastScoutAt) >= SCOUT_COOLDOWN_MS;
 }
 
+// A Find jobs press on a Mac that never searched is the first run (jobs in seconds), whoever pressed: the card, the header button, ⌘K.
+export const searchTrigger = settings => (settings.lastSearchAt ? 'you' : 'first');
+
 export async function searchSteps(storage, onLine, mode, trigger = 'you', exec = run, {employers = false} = {}) {
   const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'), !!storage.secret('OPENAI_API_KEY'));
   const env = triggerEnv(trigger);
