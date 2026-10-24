@@ -104,7 +104,7 @@ them from colliding in one checkout:
   `--full` runs every suite locally (a rare choice, not the Tier 2 default), `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
   **Never write the extension's version:** `extension/manifest.json` holds the base (`"0.9"`); the build stamps the rest (`desktop/scripts/extension-stamp.mjs`:
   the count of commits that changed `extension/`), so extension PRs no longer conflict with each other (13 Oct 2026).
-  The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>`, `ship: REVIEW #n <url>` or
+  The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log; with 2+ commits add `--title="<what the whole PR does>"`, the PR's title names the whole PR); the log's last line is `ship: DONE <sha>`, `ship: REVIEW #n <url>` or
   `ship: FAILED …` (after REVIEW the log goes on with `ship: MERGED`, `CLOSED`, `RED`, `GREEN`; the watcher starts when the PR opens, also after FAILED): Monitor `^ship: (DONE|FAILED|REVIEW|MERGED|CLOSED|RED|GREEN)` in the background, never a foreground wait (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).
 - **Keep worktrees after landing**; never remove another session's. `tools/worktree.sh prune` (dry run; `--yes` acts; by hand or monthly) removes

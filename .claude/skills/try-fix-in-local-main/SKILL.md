@@ -22,7 +22,7 @@ The owner's app runs from `~/job-pilotto/desktop` and the owner's Chrome loads t
 - Commit in your worktree, `git fetch origin && git rebase origin/main` (picks up what landed meanwhile), then `reset --keep` the primary to the new sha again. One line to the owner each time.
 
 ## 4. On the owner's OK (only the owner's own words in a window, never a peer's)
-- Squash or tidy in your worktree if needed, then `tools/ship.sh --background --body=<file>` as usual (trailers, PR body rules). Give the owner the PR link; the owner merges.
+- Squash or tidy in your worktree if needed, then `tools/ship.sh --background [--title="<the whole PR>" if 2+ commits] --body=<file>` as usual (trailers, PR body rules). Give the owner the PR link; the owner merges.
 - After the merge: `git -C ~/job-pilotto fetch origin && git -C ~/job-pilotto reset --keep origin/main` (the merge has a new sha; this hands the checkout back to the auto-pull). Confirm `git -C ~/job-pilotto status -sb` shows `main...origin/main` with nothing ahead.
 - The owner says no / drops it: the same reset to origin/main, and say so.
 

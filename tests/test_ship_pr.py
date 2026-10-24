@@ -56,6 +56,7 @@ class ShipPrTest(ShipFixture):
             (['Show the new feed', 'Move feeds.scan into its own file'], None, 'Show the new feed'),
             (['Move a into b'], None, 'Move a into b'),
             (['Move feeds.scan into its own file', 'Show the new feed'], 'Chosen words', 'Chosen words'),
+            (['Show the new feed', 'Tick the spec'], 'Chosen words', 'Chosen words'),
         ]
         for i, (subjects, title, want) in enumerate(cases):
             with self.subTest(subjects=subjects, title=title):
@@ -67,6 +68,20 @@ class ShipPrTest(ShipFixture):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 create = [c for c in self.calls() if 'pr create' in c][-1]
                 self.assertIn(f'--title {want} --body', create)
+
+    def test_two_commits_need_a_title_naming_the_whole_pr_to_open_the_pr(self):
+        # 24 Oct 2026: #1743 was titled "Name a file as the spec's fixtures proof", its 6th commit; the PR did something else.
+        self.change(self.tree, 'a.txt', 'y\n', 'Show the new feed')
+        self.change(self.tree, 'b.txt', 'y\n', 'Tick the spec')
+        result = self.pr_ship()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn('--title=', result.stdout + result.stderr)
+        self.assertFalse([c for c in self.calls() if 'pr create' in c], 'no PR is opened')
+        # a later ship of the open PR never needs it and never retitles it
+        open_pr = {'state': 'OPEN', 'head': 'topic', 'title': '[9f] Whole change'}
+        self.pr_ship(open_pr, JOB_PILOTTO_SESSION='job-pilotto-9f')
+        self.assertFalse([c for c in self.calls() if 'pr edit' in c and '--title' in c])
+        # --title= with 2+ commits and the "[xx] " tag are covered by the title cases above and test_the_pr_title_names_the_session_that_opened_it
 
     def test_a_title_given_on_a_reship_updates_the_open_pr_and_none_leaves_it(self):
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
@@ -268,7 +283,7 @@ class ShipPrTest(ShipFixture):
         self.assertIsNotNone(first, 'a watcher pid file next to the git dir')
         self.addCleanup(lambda: self.pid() and os.kill(self.pid(), signal.SIGTERM) if self.alive(self.pid() or 0) else None)
         self.change(self.tree, 'more.txt', 'y\n', 'More')
-        self.pr_ship({}, SHIP_REVIEW='1', SHIP_WATCH='1', SHIP_WATCH_POLL='1')
+        self.pr_ship({}, '--title=Both changes', SHIP_REVIEW='1', SHIP_WATCH='1', SHIP_WATCH_POLL='1')   # 2 commits and a fresh fake state: a PR would be opened, which needs a title
         for _ in range(50):
             if self.pid() != first: break
             time.sleep(0.1)
