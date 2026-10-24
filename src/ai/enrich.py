@@ -93,7 +93,7 @@ SCHEMA = {
         'role_family': {'type': 'string', 'enum': ['sre', 'platform', 'devops', 'cloud_infrastructure', 'software',
                                                    'data', 'security', 'support_it', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare',
                                                    'creative_media', 'finance_admin', 'education', 'trades', 'other']},
-        'technologies': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Up to 12 key technologies'},
+        'technologies': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Up to 8 key skills, tools, licences, certifications or topics the role names (any trade), short, in the posting\'s own language; [] when none'},
         'responsibilities': {'type': 'array', 'items': {'type': 'string'},
                              'description': 'What the role involves day to day: up to 4 short plain sentences (under 110 characters each), in the posting\'s own terms; [] when it says nothing'},
         'on_call': {'type': 'string', 'enum': ['yes', 'no', 'unknown']},

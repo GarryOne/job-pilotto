@@ -28,8 +28,6 @@ export const TIPS = [
     text: 'Name a skill where you used it. A list of keywords reads thin to a recruiter, and nobody has shown a stuffing penalty.'},
   {id: 'no-white-text', evidence: 'research', category: 'cv', source: BUILTIN,
     text: 'Hidden white text is read by parsers and can get you flagged or blacklisted. It is never worth it.'},
-  {id: 'posting-words', evidence: 'advice', category: 'cv', for: 'it',
-    text: 'Use the posting\'s own words for skills you really have: "Kubernetes", not "k8s".'},
   {id: 'posting-words-general', evidence: 'advice', category: 'cv',
     text: 'Use the posting\'s own words for the skills and tools you really have: if it spells a name out, write it that way, not as your own abbreviation.'},
   {id: 'one-column', evidence: 'advice', category: 'cv',

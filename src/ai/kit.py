@@ -97,8 +97,7 @@ paragraph structure and generic phrasing — these are the biggest tells that a 
 - Voice: write in the candidate's own voice as described in the standard answers' cover letter
 style (direct, personal, openly says what excites them, plain words, short sentences), and match
 its example answer. Never polished marketing or AI-sounding phrasing.
-- Pick achievements per question and per role, not the same headline everywhere. The
-observability/monitoring migration belongs only where monitoring, observability, platform work
+- Pick achievements per question and per role, not the same headline everywhere. An achievement belongs only where the question is about that kind of work
 or "a big initiative you drove" is what's asked. "Why this company / why this role" questions are
 about motivation: answer why this company and role, don't recap the CV.
 - Answers: one entry per form question you are given, in order, using its field name. For select \
