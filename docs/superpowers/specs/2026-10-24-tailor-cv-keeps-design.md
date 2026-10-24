@@ -48,7 +48,7 @@ same page count and size, fonts and sizes 100% of the original's, pixel drift �
   - [x] Renderer: a .docx drawn to PDF in the hidden window (docx-preview), office fonts from the same-width twins (proof: desktop/test/docx-render.test.js)
   - [x] LibreOffice add-on (owner 24 Oct 2026: "are we reinventing the wheel?" → LibreOffice, never in the installer, downloaded on use, Mac + Windows): pinned build, SHA-256 checked, unpacked into the data folder; real Mac run 24 s + 10 s per CV; on the real Word sample 2 pages like Word (ours 3) (proof: desktop/test/office.test.js)
   - [x] Download bar on Profile → CV, look approved by the owner (side-by-side, 24 Oct 2026): share, MB, time left, steps, Cancel / Try again (proof: desktop/test/office-progress.test.js)
-  - [ ] Windows: prove the real download + msiexec /a + conversion on a Windows runner (manual workflow)
-  - [ ] Picking a .docx: saved as cv.docx, drawn to cv.pdf, imported as today; accept list in renderer/cv-files.js (shared with session 35's setup card)
-  - [ ] Tailor: the .docx path (prepare's room from the drawn PDF, edit, draw, review boxes on the drawn pages); template as fallback
+  - [x] Windows: the real download + msiexec /a (no admin) + conversion, 26 s on a Windows runner, 23 s on Mac (#1760) (proof: .github/workflows/office-addon.yml @0dcd019)
+  - [x] Picking a .docx: saved as cv.docx, drawn to cv.pdf, imported as today; accept list in renderer/cv-files.js "PDF or Word" (#1760) (proof: desktop/test/cv-docx.test.js @0dcd019)
+  - [x] Tailor: the .docx path (prepare's room from the drawn PDF, edit, draw, review boxes on the drawn pages); PDF in place, then template as fallback; real run on a made-up CV: 18 s, 1 page, boxes on the right lines (proof: desktop/test/cv-docx-tailor.test.js)
   - [ ] Real Word sample re-measured locally (numbers only)
