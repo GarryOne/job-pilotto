@@ -9,15 +9,18 @@ export const MODELS = {
   claude: {small: 'Claude Haiku', main: 'Claude Sonnet', big: 'Claude Opus'},
   openai: {small: 'GPT-6 Luna', main: 'GPT-6.1 Sol', big: 'GPT-6.1 Sol'},
   free: {small: 'Free AI', main: 'Free AI', big: 'Free AI'},
+  none: {small: 'AI', main: 'AI', big: 'AI'},
 };
 const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : 'claude');
-const modelsOf = engine => (engine === 'free' ? 'free' : familyOf(engine));
+const modelsOf = engine => (engine === 'free' || engine === 'none' ? engine : familyOf(engine));
 
 export const engineOf = storage => chosen(storage?.settings?.() || {}, {ANTHROPIC_API_KEY: storage?.secret?.('ANTHROPIC_API_KEY')}) || 'api';
 // The name's key: Free AI is the 'api' engine pointed at our relay (settings.aiFree / aiTrial): named 'free', never 'Claude'.
 const nameKey = storage => {
-  const engine = engineOf(storage);
-  return engine === 'api' && isOn(storage?.settings?.()) ? 'free' : engine;
+  const settings = storage?.settings?.() || {};
+  const engine = chosen(settings, {ANTHROPIC_API_KEY: storage?.secret?.('ANTHROPIC_API_KEY')});
+  if (!engine) return isOn(settings) ? 'free' : 'none';   // nothing chosen, no key: "AI"
+  return engine === 'api' && isOn(settings) ? 'free' : engine;
 };
 export function aiText(storage, text) {
   const engine = nameKey(storage), family = modelsOf(engine);
