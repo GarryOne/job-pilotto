@@ -84,7 +84,12 @@ export async function run(ctx) {
       .catch(() => { throw new Error('the store\'s application is not on the board (the Jobs list does not read the store?)'); });
     const columns = await page.evaluate(() => [...document.querySelectorAll('#jobs-board .board-column')].map(column => column.dataset.stage));
     if (columns.length !== 15 || columns[0] !== 'Recruiter lead' || columns.at(-1) !== 'Dismissed') throw new Error(`columns: ${columns.join(', ')}`);
-    if (!await cardIn(BOARD.applied, 'Applied') || !await cardIn(BOARD.saved, 'Saved')) throw new Error('a card is in the wrong column');
+    // Both cards are waited for, each in its own column: the board draws them in one pass, but a slow runner (Windows CI, 24 Oct 2026) had the Applied card up before the Saved one.
+    const where = [[BOARD.applied, 'Applied'], [BOARD.saved, 'Saved']];
+    const inPlace = () => Promise.all(where.map(([url, stage]) => cardIn(url, stage)));
+    await page.waitForFunction(pairs => pairs.every(([u, s]) => !!document.querySelector(`#jobs-board .board-column[data-stage="${s}"] .board-card[data-url="${u}"]`)), where, {timeout: 30000}).catch(() => {});   // the message below names the card that never came
+    const placed = await inPlace();
+    if (!placed.every(Boolean)) throw new Error(`a card is not in its column: ${where.filter((_, i) => !placed[i]).map(([url, stage]) => `${url} (not in ${stage})`).join(', ')}`);
   });
 
   await ctx.run('moving a card to Interviewing writes the stage and its event to the store, and it stays after a reload', async () => {
