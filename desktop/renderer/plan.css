@@ -6,3 +6,8 @@
 /* Settings → Plan: the Free card and the Pro card, one per row at the full content width (owner, 17 Oct 2026); no grid, the cards are plain .setting blocks like every other page. */
 .plan-joined { margin: var(--sp-3) 0 0; font-weight: 600; }
 .pro-waitlist-dialog input { width: 100%; }
+
+/* The two packages side by side, buttons on one line (Settings → Plan, pages/plan.js). */
+.plan-packages { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.plan-packages .summary-card { display: flex; flex-direction: column; gap: 8px; }
+.plan-packages .summary-card button { margin-top: auto; align-self: flex-start; }
