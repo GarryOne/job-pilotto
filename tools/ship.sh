@@ -11,7 +11,7 @@
 #   tools/ship.sh --keep     accepted, does nothing (keeping is the default since 11 Oct 2026)
 #   tools/ship.sh --remove   remove the worktree and its branch after landing (the old default)
 #   tools/ship.sh --body=<file>  the PR's 5-second summary (a verdict line, short bullets, a before/after table): tools/pr-body.sh puts it on top
-#   tools/ship.sh --title=<text>  the PR's title; default: the newest commit that is not a "Move ..." split (tools/pr-title.sh); on a PR already open it retitles only when given
+#   tools/ship.sh --title=<text>  the PR's title; one commit: its subject; 2+ commits: required when the PR is opened and names the whole PR (not the newest commit); on a PR already open it retitles only when given
 #   tools/ship.sh --background   start detached and return at once (the checks can take minutes): follow the log it names
 #   tools/ship.sh --draft    open the PR as a draft (nobody can merge it) and mark it ready only when every check it started is green (owner, 14 Oct 2026)
 # Every run writes its whole output to a log (the first line names it; SHIP_LOG=<file> chooses it), shows each step with the seconds since

@@ -18,7 +18,7 @@ Why this exists (24 Oct 2026): in beta runs 5-11 about 8 of ~10 e2e fixes were t
 4. **Prove the step alone, in seconds:** `cd desktop/e2e && E2E_STEPS="<step>,<its prerequisites>" node run-all.mjs --only <suite>`. Prove the repro first (your setup took effect).
 5. **Then the whole fixed suite plus the siblings, on CI by hand, not in a beta:**
    `gh workflow run e2e.yml --ref <your branch> -f suite=<suite>,<sibling>`. Linux suites only; a Mac suite (`runnerOf`) waits for the gate. Monitor the run; do not start a beta to check a test fix.
-6. **Ship** with `tools/ship.sh --background`. The PR's own "E2E suites for a PR" run (pr-suites.yml) repeats step 5 for the suites its files point at.
+6. **Ship** with `tools/ship.sh --background [--title="<the whole PR>" if 2+ commits]`. The PR's own "E2E suites for a PR" run (pr-suites.yml) repeats step 5 for the suites its files point at.
 
 ## Never
 - Re-run the full `run-all` or a beta to look at a failure.

@@ -37,9 +37,13 @@ ship_pr_land() {
   local n="" out view state mergeable checks failing name link who tries=0 waited=0 last_say=0 body title poll="${SHIP_PR_POLL:-15}" limit="${SHIP_PR_TIMEOUT:-2700}"
   files="$(git diff --name-only origin/main HEAD)"
   ship_pr_no_stacking
+  n="$(gh pr list --head "$branch" --state open --json number 2>/dev/null | jq -r '.[0].number // empty')" || n=""
+  # A PR's title names the whole PR (owner, 24 Oct 2026: #1743 was titled by its 6th commit, a spec tick): 2+ commits that are not "Move ..." splits need --title= when the PR is opened.
+  if [ -z "$n" ] && [ -z "${SHIP_PR_TITLE:-}" ] && [ "$(git log --format=%s origin/main..HEAD | grep -vc '^Move ')" -ge 2 ]; then
+    ship_pr_fail "this PR has several commits: pass --title=\"<what the whole PR does for the user>\" (a PR's title names the whole change, not its newest commit)"
+  fi
   step "pushing $branch (not main) and opening a pull request"
   ship_pr_push
-  n="$(gh pr list --head "$branch" --state open --json number 2>/dev/null | jq -r '.[0].number // empty')" || n=""
   if [ -z "$n" ]; then
     title="${SHIP_PR_TITLE:-$(bash "$tools/pr-title.sh" origin/main)}"   # the newest commit that is not a "Move ..." split, or --title= (18 Oct 2026)
     who="$(session_name)"; [ "$who" = "?" ] || title="[${who#job-pilotto-}] $title"   # the session that opened it, short (owner, 15 Oct 2026; tools/session-name.sh)
