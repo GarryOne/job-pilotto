@@ -504,6 +504,12 @@ button.with-icon .icon { width: 15px; height: 15px; }
 /* While the panel is open its lead line says the same thing: the row's own line steps aside. */
 .job-row:has(.fit-detail) .reason { display: none; }
 .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+/* One fixed row height (owner, 24 Oct 2026: "all the jobs rows cards have the same height"): tags, place, reason, title and company are one line each, cut with … (the full text on hover). */
+.job-row .tags { flex-wrap: nowrap; overflow: hidden; min-height: 22px; }
+.job-row .tags .ui-tag { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-row .tags .ui-tag:last-child:not(:first-child) { flex-shrink: 0; }   /* the "+N" never shrinks */
+.job-row .title-line a, .job-row .company .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-row .reason { -webkit-line-clamp: 1; min-height: 1.4em; }
 .meta { display: none; }
 .company { display: flex; align-items: center; gap: 8px; min-height: 28px; }
 .company .name { font-weight: 600; font-size: var(--fs-md); line-height: 1.25; min-width: 0; overflow-wrap: break-word; }
@@ -512,7 +518,9 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .place { display: grid; gap: 5px; padding-top: 4px; font-size: var(--fs-sm); }
 .place-line { display: flex; align-items: flex-start; gap: 7px; min-width: 0; }
 .place-line .icon { width: 14px; height: 14px; color: var(--muted); margin-top: 1px; }
-.place-line span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }   /* a single very long place never makes a tall row */
+.place-line { align-items: center; }
+.place-line span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* a single very long place never makes a tall row */
+.place-line .ui-pill { flex: none; }
 .status-cell { padding-top: 4px; display: grid; justify-items: start; gap: 5px; }
 .row-actions { flex-wrap: nowrap; gap: 6px; padding-top: 2px; justify-content: flex-end; align-items: center; }
 /* Wide enough for the longest label ("Apply with Claude"); every row shares it so the rows line up. */
