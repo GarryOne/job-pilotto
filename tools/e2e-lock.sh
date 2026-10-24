@@ -18,7 +18,7 @@ drop() { gh api -X DELETE "repos/${repo}/git/refs/${ref}" >/dev/null 2>&1; }
 acquire() {
   local tree commit start held msg run status
   tree="$(gh api "repos/${repo}/git/commits/${GITHUB_SHA:?}" --jq .tree.sha)" || { echo "e2e-lock: cannot read the tree of ${GITHUB_SHA}" >&2; exit 1; }
-  start=$SECONDS
+  start=$SECONDS; said=-60
   while true; do
     commit="$(gh api -X POST "repos/${repo}/git/commits" -f message="${me}" -f tree="${tree}" --jq .sha)" || { echo "e2e-lock: cannot create the lock commit" >&2; exit 1; }
     if gh api -X POST "repos/${repo}/git/refs" -f ref="refs/${ref}" -f sha="${commit}" >/dev/null 2>&1; then
@@ -34,7 +34,7 @@ acquire() {
       continue
     fi
     if [ $((SECONDS - start)) -ge "$max" ]; then echo "e2e-lock: waited ${max}s for ${key}, held by ${msg}" >&2; exit 1; fi
-    if [ $(( (SECONDS - start) % 60 )) -lt "$poll" ]; then echo "e2e-lock: ${key} is held by ${msg} (run ${status}), waiting"; fi
+    if [ $((SECONDS - said)) -ge 60 ]; then said=$SECONDS; echo "e2e-lock: ${key} is held by ${msg} (run ${status}), waiting"; fi
     sleep "$poll"
   done
 }
