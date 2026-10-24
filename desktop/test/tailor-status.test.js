@@ -16,7 +16,7 @@ test('a status is found by the posting, the form below it, and a #fragment', () 
 });
 
 // Controls that show their own progress and failure (Fill: its step row and "Couldn't fill"; Review answer: its card; Take over / Claude auto: off). A new asking control must join ask() or this list.
-const OWN = new Set(['panelFill', 'panelReviewAnswer', 'panelTakeOver', 'panelClaudeAuto', 'panelTip', 'panelGoTab', 'panelReload', 'panelStepNow', 'panelBuild', 'panelJob', 'panelAllowed', 'panelCloseTab', 'panelFillOne', 'panelShowTab', 'panelCloseTab']);
+const OWN = new Set(['panelFill', 'panelReviewAnswer', 'panelTakeOver', 'panelClaudeAuto', 'panelTip', 'panelGoTab', 'panelReload', 'panelReloading', 'panelStepNow', 'panelBuild', 'panelJob', 'panelAllowed', 'panelCloseTab', 'panelFillOne', 'panelShowTab', 'panelCloseTab']);
 test('every panel control that asks the app goes through ask(), which says progress and failure on the panel', () => {
   const root = new URL('../../extension/', import.meta.url);
   const sources = fs.readdirSync(root).filter(f => /^(review|panel-.*)\.js$/.test(f)).map(f => fs.readFileSync(new URL(f, root), 'utf8'));
