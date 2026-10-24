@@ -27,6 +27,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: What the lab's tests import
+        run: python3 -m pip install --quiet cryptography==44.0.2
       - name: Read access to the private lab and a status on its commits (the CI App, the lab only)
         id: lab_token
         uses: actions/create-github-app-token@v2
@@ -43,4 +45,5 @@ jobs:
           LAB_TOKEN: ${{ steps.lab_token.outputs.token }}
           LAB_EVENT: ${{ github.event_name == 'schedule' && (github.event.schedule == '25 5 * * *' && 'schedule-main' || 'schedule') || github.event_name }}
           LAB_PR: ${{ inputs.pr }}
+          JOB_PILOTTO_PUBLIC: ${{ github.workspace }}   # the lab's discovery tests read this engine checkout
         run: python3 tools/lab_ci.py

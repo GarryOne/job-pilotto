@@ -11,7 +11,7 @@ import urllib.request
 LAB = 'GarryOne/jobadabra-lab'
 CONTEXT = 'lab-ci'
 API = 'https://api.github.com'
-SAFE_ENV = ('PATH', 'HOME', 'LANG', 'TMPDIR')   # the tests see no token, no workflow secret
+SAFE_ENV = ('PATH', 'HOME', 'LANG', 'TMPDIR', 'JOB_PILOTTO_PUBLIC')   # the tests see no token, no workflow secret; JOB_PILOTTO_PUBLIC = this checkout (the lab's discovery tests read the engine)
 
 
 def parse_summary(output):
