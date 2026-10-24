@@ -120,11 +120,14 @@ changes: 3–8 short items for the candidate: where (e.g. "Summary", "Acme · Da
 // When the tailored CV is the person's own PDF edited in place (lib/cv-inplace.js): each text is re-set on its own lines.
 const IN_PLACE_RULES = `
 This CV keeps its own design: each text is re-set on the lines it has now, so nothing can grow past them. Keep every bullet of
-every role (drop none; reorder and reword only). The summary and each bullet carry "max_chars": the new wording must not be longer.`;
+every role (drop none; reorder and reword only). The summary and each bullet carry "max_chars": the new wording must not be longer.
+When the CV carries "summary_paragraphs_max_chars", its summary is set in paragraphs and list lines (one per line, a list line starting
+with "- "): keep the same number of lines in the same order, separated by line breaks, each line within its own entry.`;
 
 // The CV as the model sees it: bullets numbered per role. room (in place): the characters each text may take (cv-inplace roomOf);
 // the extra bullets are left out then, since the person's own page has no lines for them.
 const numbered = (cv, room = null) => ({summary: cv.summary || '', ...(room?.summary ? {summary_max_chars: room.summary} : {}),
+  ...(room?.summaryParts ? {summary_paragraphs_max_chars: room.summaryParts} : {}),
   jobs: cv.jobs.map((job, j) => ({company: job.company, roles: job.roles.map((r, ri) => ({
     title: r.title, period: r.period, ...(r.intro ? {intro: r.intro} : {}),
     bullets: r.bullets.map((text, index) => ({index, text, ...(r.extra?.includes(index) ? {extra: true} : {}),

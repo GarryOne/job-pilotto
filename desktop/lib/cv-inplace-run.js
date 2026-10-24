@@ -16,7 +16,10 @@ export async function prepare(storage, base, readPdf) {
   if (!doc?.pages?.some(p => p.shows.length)) return {why: 'the PDF has no text layer'};
   const items = itemsOf(doc, base), bullets = items.filter(i => i.kind === 'bullet');
   const found = bullets.filter(i => i.shows).length;
-  if (!items.some(i => i.kind === 'summary' && i.shows) && found < bullets.length * 0.6) return {why: `only ${found} of ${bullets.length} bullets found on the page`};
+  // Enough of the CV must be on the page, or the tailoring would change nothing: the summary (one of its paragraphs), or most bullets.
+  if (!items.some(i => i.kind === 'summary' && i.shows) && (!found || found < bullets.length * 0.6)) {
+    return {why: bullets.length ? `only ${found} of ${bullets.length} bullets found on the page` : 'nothing found on the page to edit'};
+  }
   return {bytes: fs.readFileSync(file), doc, room: roomOf(items)};
 }
 

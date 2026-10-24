@@ -37,6 +37,8 @@ test('prepare: in place only for the PDF cv.json was read from, with a room per 
   const other = structuredClone(shapes.band.cv);
   other.summary = 'Someone else entirely.'; for (const job of other.jobs) for (const role of job.roles) role.bullets = role.bullets.map(b => `${b} (edited by hand)`);
   assert.match((await prepare(withCv(), other, reader('band'))).why, /bullets found/);
+  const nothing = {...structuredClone(shapes.band.cv), summary: 'Written by the import, not on the page.', jobs: []};   // nothing to edit: the template
+  assert.match((await prepare(withCv(), nothing, reader('band'))).why, /nothing found|bullets found/);
 });
 
 test('the prompt in place: max_chars per text, keep every bullet, no extra bullets offered', async () => {
@@ -50,6 +52,11 @@ test('the prompt in place: max_chars per text, keep every bullet, no extra bulle
   assert.equal(cv.summary_max_chars, 240);
   assert.equal(cv.jobs[0].roles[0].bullets[0].max_chars, 120);
   assert.ok(!cv.jobs[0].roles[0].bullets.some(b => b.extra), 'the extra bullet is not offered');
+  await cvlib.tailor(storage, {title: 'Designer', company: 'Acme', description: 'x'}, '', {client, base, room: {summary: null, summaryParts: [80, 120], jobs: {}}});
+  const parts = JSON.parse(asked.messages[0].content.match(/<cv>\n([\s\S]*?)\n<\/cv>/)[1]);
+  assert.deepEqual(parts.summary_paragraphs_max_chars, [80, 120]);
+  assert.equal(parts.summary_max_chars, undefined);
+  assert.match(asked.system, /same number of lines/);
   await cvlib.tailor(storage, {title: 'Designer', company: 'Acme', description: 'x'}, '', {client, base});
   assert.doesNotMatch(asked.system, /Keep every bullet/, 'the template path keeps today\'s prompt');
 });

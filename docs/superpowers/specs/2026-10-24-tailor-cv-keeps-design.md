@@ -42,5 +42,5 @@ same page count and size, fonts and sizes 100% of the original's, pixel drift �
 - [x] Tailor prompt: room per item, no drops in place (proof: desktop/test/cv-inplace-run.test.js)
 - [x] Font fallback chain (installed, download once, same-width twin downloaded once) (proof: desktop/test/pdf-edit-fonts.test.js)
 - [x] Wire into Tailor CV with the template fallback; review page on the real pages (proof: desktop/test/cv-inplace-run.test.js)
-- [ ] Re-measure the 9 real samples on the Mac (local only), before/after to the owner
+- [x] Re-measure the 9 real samples on the Mac (local only), before/after to the owner: 8 readable PDFs, real tailoring, 90–100 where texts changed (today's template 13–61); two scored 100 with nothing changed, which led to summaries read per paragraph and the template when nothing is found (proof: desktop/test/cv-inplace.test.js)
 - [ ] Next step (separate PR): DOCX in place
