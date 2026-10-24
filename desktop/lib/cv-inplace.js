@@ -52,7 +52,7 @@ export function planInPlace(doc, base, review) {
     lacks(r.missingBy);
     if (!r.fits) return keep(item.where, r.missing ? `your CV's font has no "${r.missing}"` : 'the new wording is longer than its lines');
     plan.remove.push(...r.remove); plan.add.push(...r.add); changed++;
-    boxes.push(...r.add.map(a => ({...a.box, mark})));
+    boxes.push(...r.add.map(a => ({...a.box, mark, before: item.text})));
   };
   const summary = items.find(i => i.kind === 'summary');
   if (summary && plain(review.summary) !== summary.text) set(summary, review.summary, 'reworded');
@@ -85,7 +85,10 @@ export function planInPlace(doc, base, review) {
       if (!stacked.why && !moved && texts.every((t, x) => t === own[x].text)) done = true;   // nothing left to change
       else if (!stacked.why) {
         plan.remove.push(...stacked.remove); plan.add.push(...stacked.add); plan.marks.push(...stacked.marks);
-        own.forEach((_, x) => { if (texts[x] !== own[x].text || moved) { changed++; boxes.push(...stacked.boxes[x].map(b => ({...b, mark: markOf(x)}))); } });
+        own.forEach((_, x) => {   // a bullet only pushed down by another keeps no box (as in the template review)
+          const mark = texts[x] !== own[x].text ? (markOf(x) === 'moved' ? 'moved' : 'reworded') : markOf(x);
+          if (mark !== 'kept') { changed++; boxes.push(...stacked.boxes[x].map(b => ({...b, mark, before: own[x].text}))); }
+        });
         done = true;
       } else if (moved) warnings.push(`${where}: kept the original order of the bullets (${stacked.why})`);
     }

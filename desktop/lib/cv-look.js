@@ -134,12 +134,12 @@ export async function apply(dir, cv, found, probe) {
   return out;
 }
 
-// The hidden window that runs cv/pdf-probe.html on a PDF. -> {scan, crop, page, close}
+// The hidden window that runs cv/pdf-probe.html on a PDF. -> {open, scan, read, crop, image, page, close}
 export async function probeWindow(BrowserWindow, pdfPath) {
   const win = new BrowserWindow({show: false, width: 800, height: 600, webPreferences: {sandbox: false, contextIsolation: false, webSecurity: false}});
   await win.loadFile(path.join(here, '..', 'cv', 'pdf-probe.html'));
   for (let i = 0; i < 100 && !(await win.webContents.executeJavaScript('window.cvProbeReady === true')); i++) await new Promise(resolve => setTimeout(resolve, 100));
   const call = (name, ...args) => win.webContents.executeJavaScript(`window.cvProbe.${name}(...${JSON.stringify(args)})`);
   await call('open', fs.readFileSync(pdfPath).toString('base64'));
-  return {open: base64 => call('open', base64), scan: () => call('scan'), crop: (...args) => call('crop', ...args), image: (...args) => call('image', ...args), page: (...args) => call('page', ...args), close: () => win.destroy()};
+  return {open: base64 => call('open', base64), scan: () => call('scan'), read: () => call('read'), crop: (...args) => call('crop', ...args), image: (...args) => call('image', ...args), page: (...args) => call('page', ...args), close: () => win.destroy()};
 }

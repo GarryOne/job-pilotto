@@ -5,6 +5,7 @@ import * as apply from './apply.js';
 import * as atUpload from './cv-import-at-upload.js';
 import * as claudeCode from './claude-code.js';
 import * as cvlib from './cv.js';
+import * as inPlace from './cv-inplace-run.js';
 import * as experience from './experience.js';
 import * as files from './files.js';
 import * as storeFiles from './store/files.js';
@@ -17,7 +18,7 @@ import fs from 'node:fs';
 import {log as appLog} from './log.js';
 
 export function registerKitHandlers(ctx) {
-  const {DEMO, allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, powerMonitor, printPdf, shell, storage, track} = ctx;
+  const {DEMO, allowanceBlock, app, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, pageImages, powerMonitor, printPdf, readCvPdf, shell, storage, track} = ctx;
   registerReadyHandlers({ipcMain, notify, shell, storage, app, powerMonitor, prepare: {kit: (code, name) => prepareKitFor(code, name, {quiet: true}), cv: (code, name) => tailorCv(code, name, {show: false, quiet: true})}});   // Ready to send (the owner's install only): the card beside Tailor on Actions, its calls in lib/ready-handlers.js
   const {makeFor: makeJobLetter} = registerJobLetterHandlers({DEMO, ipcMain, printPdf, shell, storage});   // the job's own cover letter, made after its CV
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
@@ -60,20 +61,32 @@ export function registerKitHandlers(ctx) {
       if (!job.ok) return {ok: false, error: job.error};
       const main = cvlib.baseCv(storage), base = experience.withExtras(storage, main);   // the main CV + the bank's extra bullets (same jobs and dates)
       const {profile} = await strategy.profileTexts(storage);
-      let feedback = '', result, applied, printed;
+      // The person's own PDF edited in place when it can be (same design, fonts and pages); otherwise today's template.
+      const own = readCvPdf ? await inPlace.prepare(storage, base, readCvPdf) : {why: 'no PDF reader'};
+      if (own.why) appLog('cv', 'tailored CV from the template', {code, why: own.why});
+      let feedback = '', result, applied, printed, edited = null;
       for (let attempt = 0; attempt < 2; attempt++) {
-        const answer = await cvlib.tailor(storage, job, key, {client: ai, feedback, profile, base});
+        const answer = await cvlib.tailor(storage, job, key, {client: ai, feedback, profile, base, room: own.room});
         cost += answer.usd;
         result = answer.result;
         applied = cvlib.applyTailoring(base, result, `${profile} ${experience.knownText(storage, main)}`);
+        if (own.doc) {
+          edited = await inPlace.make(own, base, applied, {cacheDir: storage.path('fonts')});
+          if (!edited.why) { applied = {...applied, warnings: edited.warnings, review: edited.review}; printed = {pdf: edited.pdf, overflow: []}; break; }
+          appLog('cv', 'tailored CV from the template', {code, why: edited.why});
+          edited = null;
+        }
         printed = await printPdf(cvlib.writeHtml(storage, applied.cv, `${code}.html`));
         if (!printed.overflow.length) break;
         feedback = `Your last version didn't fit on page ${printed.overflow.join(', ')}: make the bullets on that page shorter or drop one, so it fits.`;
         if (attempt === 1) applied.warnings.push(`Page ${printed.overflow.join(', ')} is too full and its end is cut off: tailor again, or shorten it by hand.`);
       }
       const record = {job: {code, title: job.title, company: job.company, url: job.url}, createdAt: new Date().toISOString(),
-        model: cvlib.MODEL, usd: Math.round(cost * 100) / 100, changes: result.changes, warnings: applied.warnings, cv: applied.cv, review: applied.review, result};
+        model: cvlib.MODEL, usd: Math.round(cost * 100) / 100, changes: result.changes, warnings: applied.warnings, cv: applied.cv, review: applied.review, result,
+        ...(edited ? {inPlace: edited.inPlace} : {})};
       cvlib.save(storage, code, record, printed.pdf);
+      if (edited) try { cvlib.savePages(storage, code, await pageImages(cvlib.pdfPath(storage, code), edited.inPlace.pages.length)); }
+      catch (error) { appLog('cv', 'review pages not drawn', {code, error: error.message}); }
       // The job's cover letter with it (kit's or drafted from this CV); a failure leaves the CV standing and is said in the notification.
       const {answers} = await strategy.profileTexts(storage);
       const letter = await makeJobLetter({...job, code}, applied.cv, {profile, answers});
