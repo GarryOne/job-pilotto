@@ -24,10 +24,10 @@ const packageCard = offer => ({kind: offer.id, name: offer.name, price: euro(off
 // What the Plan card shows for the site's answer: null when the plan is off (nothing about Pro is on screen) or the site offered nothing.
 export function planView(plan = {}) {
   if (!['test', 'live'].includes(plan.mode)) return null;
-  const base = {mode: plan.mode, title: plan.plan === 'pro' ? 'Your plan' : 'Choose your plan'};
+  const base = {mode: plan.mode, title: plan.plan === 'pro' ? 'Your plan' : 'Upgrade your plan'};   // Free is the card above ("Your plan"); this one only offers more, so no second Free pill
   if (plan.plan !== 'pro') {
     const packages = ['pro', 'pro-ai'].map(id => offerOf(plan, id)).filter(Boolean).map(packageCard);
-    return packages.length ? {...base, kind: 'upgrade', pill: 'Free', packages} : null;
+    return packages.length ? {...base, kind: 'upgrade', pill: '', packages} : null;
   }
   const topups = (plan.offers || []).filter(offer => offer.id.startsWith('topup')).map(offer => ({kind: offer.id, price: euro(offer.price)}));
   const upgrade = plan.package === 'pro' && offerOf(plan, 'upgrade') ? {kind: 'upgrade', price: euro(offerOf(plan, 'upgrade').price), name: offerOf(plan, 'upgrade').name} : null;

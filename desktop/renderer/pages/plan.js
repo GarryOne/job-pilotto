@@ -15,6 +15,7 @@ function render(view) {
   if (!view) return;
   $('plan-title').textContent = view.title;
   $('plan-pill').textContent = view.pill;
+  show($('plan-pill'), !!view.pill);
   $('plan-pill').className = `ui-pill tone-${view.kind === 'pro' ? 'good' : 'info'}`;
   const body = $('plan-body');
   body.replaceChildren();
