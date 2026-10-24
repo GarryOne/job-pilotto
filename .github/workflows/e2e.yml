@@ -21,7 +21,7 @@ on:
         description: 'Suites to run, comma-separated (empty = all)'
         required: false
       pr_suites:
-        description: 'Exactly these suites as a pull request would run them (pr-suites.yml starts it with this): SQLite store, no AI screenshot review, no harness-test step, the PR branch\'s own concurrency group'
+        description: 'Exactly these suites as a pull request would run them (pr-suites.yml starts it with this): SQLite store, no AI screenshot review, no harness-test step, the PR branch''s own concurrency group'
         type: string
         default: ''
       fixed:
