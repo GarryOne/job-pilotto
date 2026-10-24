@@ -13,7 +13,7 @@
   .magic:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
   .magic:hover::before, .magic:hover::after { opacity: 1; }
 }
-.magic:focus-within { outline: 3px solid var(--signal); outline-offset: 3px; }
+.magic:focus-within { outline: 3px solid var(--signal-edge); outline-offset: 3px; }
 .magic .ui-tile { width: var(--tile-lg); height: var(--tile-lg); transform: rotate(-6deg); transition: transform .4s var(--ease); }
 .magic:hover .ui-tile { transform: rotate(0) scale(1.06); }
 .magic-stage { min-height: calc(100vh - var(--sp-6) * 2); display: grid; align-content: center; }   /* the card sits in the middle of the window */

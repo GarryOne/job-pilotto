@@ -35,7 +35,7 @@
 .strategy-page .strategy-notice.improve-line { padding: var(--sp-4) var(--sp-5); border-radius: var(--r-lg); }
 .strategy-page .improve-line .notice-words b { font-size: var(--fs-base); }
 .strategy-page .improve-line .ui-tile { width: 36px; height: 36px; }
-.strategy-page .improve-line .item-action { padding: var(--sp-2) var(--sp-4); font-size: var(--fs-base); border-color: var(--signal); color: var(--signal); }
+.strategy-page .improve-line .item-action { padding: var(--sp-2) var(--sp-4); font-size: var(--fs-base); border-color: var(--signal-edge); color: var(--signal); }
 .strategy-page .improve-line .item-action:hover { background: var(--signal-soft); }
 /* Job preferences: each side's name as a small heading over its rows; the rows are roomy-cards' icon rows. */
 .strategy-page .roomy-cards .pref-read { gap: 0; margin-top: 0; }

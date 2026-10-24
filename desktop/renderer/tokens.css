@@ -37,13 +37,17 @@
   --on-rail: #eef1f5;
   --on-rail-3: #8b94a3;
 
-  /* Brand accent: orange (actions), teal (done), amber (the board) */
-  --signal: #c74d0a;        /* white on it 4.7:1, as text on white 4.7:1 (AA; was #d9540b, 4.0) */
-  --signal-rgb: 199 77 10;
-  --signal-solid: var(--signal);   /* a filled accent (primary button) under white text: dark mode needs a deeper orange than its links */
-  --signal-ink: #a3470f;    /* orange text on the soft background */
-  --signal-soft: #fdeee4;
-  --signal-line: #f5c9ab;
+  /* Brand accent: amber (actions, selected), teal (done) */
+  /* One amber brand (owner, 24 Oct 2026: "We have our website in yellow, but the desktop app in orange"): the website's board amber #ffb224 is the fill,
+     a darker amber the link/text on light surfaces. Fill = amber with dark ink (never white on amber); selected = amber edge + soft tint. Status colours stay apart. */
+  --signal: #8a5700;        /* amber as text/links on light surfaces: 6.1:1 on white, 5.5 on the page */
+  --signal-rgb: 255 178 36; /* the amber, for glows and tints */
+  --signal-solid: #ffb224;  /* a filled accent (primary button, today's date): the website's amber */
+  --on-signal: #14110c;     /* text on the amber fill: 10.4:1 */
+  --signal-ink: #6b4300;    /* amber text on the soft background */
+  --signal-soft: #fff3d6;
+  --signal-line: #f2d28a;
+  --signal-edge: #b87400;   /* a selected card's border / an active indicator: 3.8:1 on white (non-text 3:1) */
   --teal: #0e7c7b;
   --teal-soft: #e3f3f2;
   --teal-line: #a9d8d6;
@@ -139,12 +143,11 @@
     --navy-active: #1b2735;
     --navy-line: #2f3f51;
 
-    --signal: #e8661b;        /* links and accents on the dark card: 5.3:1 */
-    --signal-rgb: 232 102 27;
-    --signal-solid: #c2500e;  /* white on the primary button 4.7:1 (#e8661b was 3.3) */
-    --signal-ink: #ffab76;
-    --signal-soft: #2a1a10;
-    --signal-line: #5c3218;
+    --signal: #ffb224;        /* links and accents on the dark card: 9.7:1 */
+    --signal-edge: #ffb224;
+    --signal-ink: #ffc95c;
+    --signal-soft: #2a2111;
+    --signal-line: #6b5220;
     --teal: #2aa79c;
     --teal-soft: #0f2a2a;
     --teal-line: #1f5553;

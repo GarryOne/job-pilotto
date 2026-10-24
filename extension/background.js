@@ -231,7 +231,7 @@ function stepBox(tabId, message) {
       box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:320px;background:#132439;color:#fff;' +
         'border-radius:10px;padding:12px 14px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px #0008;display:flex;gap:10px';
       const spin = document.createElement('span');
-      spin.style.cssText = 'flex:none;width:14px;height:14px;margin-top:2px;border-radius:50%;border:2px solid #3b5170;border-top-color:#f07014';
+      spin.style.cssText = 'flex:none;width:14px;height:14px;margin-top:2px;border-radius:50%;border:2px solid #3b5170;border-top-color:#ffb224';
       spin.animate([{transform: 'rotate(0)'}, {transform: 'rotate(360deg)'}], {duration: 800, iterations: Infinity});
       box.append(spin, document.createElement('span'));
       document.documentElement.append(box);
@@ -253,8 +253,8 @@ async function ineligibleNote(tabId, reason, partly = false) {   // partly: your
     row.style.cssText = 'display:flex;gap:8px;margin-top:10px';
     const button = (label, primary) => {
       const b = Object.assign(document.createElement('button'), {textContent: label, type: 'button'});
-      b.style.cssText = `padding:6px 12px;border-radius:7px;border:${primary ? '0' : '1px solid #3b5170'};background:${primary ? '#d9540b' : 'transparent'};` +
-        'color:#fff;font:600 12px system-ui,sans-serif;cursor:pointer';
+      b.style.cssText = `padding:6px 12px;border-radius:7px;border:${primary ? '0' : '1px solid #3b5170'};background:${primary ? '#ffb224' : 'transparent'};` +
+        `color:${primary ? '#14110c' : '#fff'};font:600 12px system-ui,sans-serif;cursor:pointer`;
       return b;
     };
     const anyway = button('Fill anyway', true), close = button('Close', false);

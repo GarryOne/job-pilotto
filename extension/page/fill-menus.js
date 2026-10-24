@@ -120,12 +120,12 @@
     const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
     if (!el || answer === undefined) return false;
     const control = comboControl(el); control.__jobPilottoDisarm?.();   // armed again (Use in the app, a re-arm): the earlier answer's click handler goes
-    control.style.outline = '3px solid #d9540b';
+    control.style.outline = '3px solid #b87400';
     control.style.outlineOffset = '2px';
     const badge = document.createElement('div');
     badge.className = 'job-pilotto-badge';
     badge.textContent = `✈️ Click to choose: ${String(answer).split(' || ')[0]}`;
-    badge.style.cssText = 'margin-top:4px;font:600 12px system-ui,sans-serif;color:#d9540b';
+    badge.style.cssText = 'margin-top:4px;font:600 12px system-ui,sans-serif;color:#8a5700';
     control.parentElement.insertBefore(badge, control.nextSibling);
     control.dataset.jobpilottoArmed = labelOf(el) || field;
     const done = () => { control.style.outline = ''; badge.remove(); delete control.dataset.jobpilottoArmed; control.removeEventListener('mousedown', onOpen, true); };

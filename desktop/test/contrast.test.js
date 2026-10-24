@@ -34,7 +34,7 @@ export const PAIRS = [
   ['text', '--ink', '--surface', 4.5], ['secondary text', '--ink-2', '--surface', 4.5], ['hint', '--muted', '--surface', 4.5], ['field label', '--label', '--surface', 4.5],
   ['hint on a quiet surface', '--muted', '--surface-2', 4.5], ['hint on the page', '--muted', '--bg', 4.5], ['text in a field', '--ink', '--field', 4.5],
   ['a field\'s edge on its card', '--field-line', '--surface', 3], ['a field\'s edge on the field', '--field-line', '--field', 3],
-  ['primary button text', '--on-accent', '--signal-solid', 4.5], ['link text', '--signal', '--surface', 4.5], ['accent text on soft', '--signal-ink', '--signal-soft', 4.5],
+  ['primary button text (amber fill)', '--on-signal', '--signal-solid', 4.5], ['selected edge on its card', '--signal-edge', '--surface', 3], ['selected edge on the page', '--signal-edge', '--bg', 3], ['link text on the page', '--signal', '--bg', 4.5], ['link text on a quiet surface', '--signal', '--surface-2', 4.5], ['link text on the soft tint (selected card)', '--signal', '--signal-soft', 4.5], ['selected edge on the soft tint', '--signal-edge', '--signal-soft', 3], ['keyboard focus ring on the card', '--signal-edge', '--surface', 3], ['keyboard focus ring on the field', '--signal-edge', '--field', 3], ['disabled primary text', '--muted', '--surface-2', 4.5], ['body text on the soft tint', '--ink', '--signal-soft', 4.5], ['warning text beside a selected card', '--warn', '--warn-soft', 4.5], ['link text', '--signal', '--surface', 4.5], ['accent text on soft', '--signal-ink', '--signal-soft', 4.5],
   ['good pill', '--good', '--good-soft', 4.5], ['warn pill', '--warn', '--warn-soft', 4.5], ['bad pill', '--bad', '--bad-soft', 4.5], ['info pill', '--info', '--info-soft', 4.5],
 ];
 
