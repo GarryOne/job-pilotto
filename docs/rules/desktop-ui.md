@@ -147,7 +147,7 @@ The owner's review of Strategy and Your details, kept as rules. Don't / Do pairs
   `desktop/test/design.test.js` fails on a raw value anywhere else. New colour or size: add a token and say why.
 - Building blocks from `components.js` + `components.css`: `pill(text, tone)`, `tag()`, `tile()`, `moreButton(items)`, button classes (`primary`,
   `secondary`, `ghost`, `link`, `danger`, `with-icon`). Something new goes there (modifiers `is-…`, tones `tone-…`) and into `gallery.js`.
-  `npm run gallery` shows every token and component. The website (private repo `job-pilotto-site`) has its own styles.
+  `npm run gallery` shows every token and component. The website (private repo `jobadabra-web`) has its own styles.
 - **UI from an owner mockup:** confirm layout + behaviour in one message before code. A card has many states; a mockup shows one: keep every state.
 
 ## Every new screen and action goes in the ⌘K palette

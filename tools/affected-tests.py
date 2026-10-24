@@ -22,7 +22,7 @@ JS_EXT = ('.js', '.mjs', '.cjs')
 IMPORT_RE = re.compile(r"""(?:require\(\s*|\bfrom\s+|\bimport\s*\(\s*|\bimport\s+)['"](\.[^'"]*)['"]""")
 SCANNER_RE = re.compile(r'''readdirSync|globSync|git ls-files|git ls-tree|['"]ls-(?:files|tree)['"]''')   # the last: execFileSync('git', ['ls-files', ...]) (15 Oct 2026)
 ENGINE_RE = re.compile(r'python|(?:^|[^A-Za-z])src[/.]')
-NODE_AREAS = {'desktop': 'desktop/test', 'worker': 'worker/test', 'site': 'test'}   # the website's tests: only in the joined tree of job-pilotto-site
+NODE_AREAS = {'desktop': 'desktop/test', 'worker': 'worker/test', 'site': 'test'}   # the website's tests: only in the joined tree of jobadabra-web
 ALL_TRIGGERS = re.compile(r'(^|/)(package(-lock)?\.json|requirements[^/]*\.txt|pyproject\.toml|eslint\.config\.mjs)$|^\.github/workflows/build\.yml$')
 # A dependency file inside one JS area (desktop/e2e/package.json) makes THAT area run whole; the other areas still pick by imports and mentions (11 Oct 2026: 1 of 150 commits, the e2e
 # harness's package.json, ran Python, worker and site whole for nothing). A root-level file (package.json, requirements, pyproject) still runs everything.

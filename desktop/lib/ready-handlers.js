@@ -1,4 +1,4 @@
-// Ready to send, the window's calls (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md): is this install the owner's (else why not: the card says it), what tonight would send, send it, start it now, the morning's rows, Done, the two numbers.
+// Ready to send, the window's calls (private spec jobadabra-lab:docs/specs/2026-10-17-ready-to-send.md): is this install the owner's (else why not: the card says it), what tonight would send, send it, start it now, the morning's rows, Done, the two numbers.
 // Registered once from kit-handlers.js (main.js is at its size limit). Nothing here presses Submit or leaves data on the site beyond what ready-batch.js builds; the site deletes it on Done, after 24 h, or on Delete everything. Guard: test/ready-handlers.test.js.
 import fs from 'node:fs';
 import * as pipeline from './pipeline.js';

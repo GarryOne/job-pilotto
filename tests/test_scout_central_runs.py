@@ -18,7 +18,7 @@ WORKFLOW_MINUTES, PUBLISH_MINUTES = 75, 15   # .github/workflows/central-scout.y
 
 
 class CentralRunsTest(unittest.TestCase):
-    @needs_site   # reads shared/scouting.js, which lives in job-pilotto-site
+    @needs_site   # reads shared/scouting.js, which lives in jobadabra-web
     def test_the_site_keeps_the_run_time_shape_the_engine_sends(self):
         """The engine sent '2026-10-20T01:06+00:00'; shared/scouting.js keeps only 'YYYY-MM-DDTHH:MM', so every run was dropped."""
         site = (Path(__file__).resolve().parents[1] / 'shared' / 'scouting.js').read_text()

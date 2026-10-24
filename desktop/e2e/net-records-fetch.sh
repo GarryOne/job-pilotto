@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The pool's newest network records, decrypted on the CI runner only (the Mac's on the release net-records of the PRIVATE repo job-pilotto-internal (owner, 14 Oct 2026),
+# The pool's newest network records, decrypted on the CI runner only (the Mac's on the release net-records of the PRIVATE repo jobadabra-lab (owner, 14 Oct 2026),
 # read with NET_RECORDS_READ_TOKEN, the public repo's old release as a fallback; records-publish.mjs): bash net-records-fetch.sh <records dir>.
 # ONLY the published release is read (owner, 15 Oct 2026): a record-sites run's CI artifact (net-records-<run>) is never fetched, so a recording reaches a replay only after it passed records-publish's guard. Needs NET_RECORD_KEY, GH_TOKEN and NET_RECORDS_READ_TOKEN on CI; on the Mac none (the Keychain key, the gh login). Used by site-replays-pr.yml and site-replays.yml.
 # --bundles-only <dir>: only downloads the release's bundles into <dir>, STILL ENCRYPTED (no key needed, nothing decrypted): one job per workflow run does it and uploads <dir> as an artifact, and every replay job

@@ -79,7 +79,7 @@ test('Settings has the switch, on by default, and Privacy and the rule name the 
   assert.match(fs.readFileSync(new URL('CLAUDE.md', root), 'utf8'), /Read refused sites in my browser/);
 });
 
-siteTest('Privacy names the feature', async () => {   // the page lives in job-pilotto-site
+siteTest('Privacy names the feature', async () => {   // the page lives in jobadabra-web
   const fs = await import('node:fs');
   assert.match(fs.readFileSync(new URL('../../web/public/privacy.html', import.meta.url), 'utf8'), /Read refused sites in my browser/);
 });

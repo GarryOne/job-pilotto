@@ -2,7 +2,7 @@
 // evidence: 'research' = what published sources agree on (a fact, shown as "Fact"); 'advice' = common, sensible guidance
 // (shown as "Tip"); 'to-test' = plausible, not verified: we test it against our own outcome data before calling it a fact.
 // Honesty rule: no invented numbers, nothing that tells users to deceive an employer. Keep each text under 150 characters.
-// evidence: 'recruiters' = what recruiters report in a few Reddit threads (shown as "Recruiters say"): firsthand, but not a survey (private research job-pilotto-internal:docs/research/ats-reddit-2026-10.md).
+// evidence: 'recruiters' = what recruiters report in a few Reddit threads (shown as "Recruiters say"): firsthand, but not a survey (private research jobadabra-lab:docs/research/ats-reddit-2026-10.md).
 // ats: shown only while the session is on that application system (see atsOf in tips.js).
 // for: 'it' = carries an IT example: shown only to a candidate looking for IT work (renderer/audience.js), and never in the Chrome extension, which cannot know. Every other tip must read
 // the same for a nurse, a photographer and an accountant (desktop/test/tips.test.js checks it).

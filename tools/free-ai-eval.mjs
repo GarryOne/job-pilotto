@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The Free AI quality table (private spec job-pilotto-internal:docs/specs/2026-10-16-free-workers-ai.md "Quality"): runs Anthropic-shaped cases through the site's own
+// The Free AI quality table (private spec jobadabra-lab:docs/specs/2026-10-16-free-workers-ai.md "Quality"): runs Anthropic-shaped cases through the site's own
 // translation (shared/free-ai-translate.js) on Workers AI models and prints a markdown table: valid JSON, schema, rank against Claude's scores, cost.
 //   node tools/free-ai-eval.mjs --cases <cases.json> [--models small,strong] [--backend rest|mock] [--out table.md]
 // Cases (made by tools/free-ai-cases.py, fictional data only): [{id, action, params: <Anthropic request>, baseline?: <Claude's score>}].

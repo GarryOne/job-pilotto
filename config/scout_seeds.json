@@ -1,5 +1,5 @@
 {
-  "_comment": "Candidate employers for scout.py, for this install only: the starting lists are central since 6 Oct 2026 (the employer index, kept in job-pilotto-internal), so these lists start empty. Add your own here: 'tier1' names, 'tier1_known' {name, ats, slug}, 'regional' {Region: [names]}, 'manual_watch' {name, careers}; 'excluded' names are never added; 'boards' lists job boards of many companies. 'tech_only' (true when absent): these lists name software employers, so a search outside IT skips them; a list of your own trade sets it to false.",
+  "_comment": "Candidate employers for scout.py, for this install only: the starting lists are central since 6 Oct 2026 (the employer index, kept in jobadabra-lab), so these lists start empty. Add your own here: 'tier1' names, 'tier1_known' {name, ats, slug}, 'regional' {Region: [names]}, 'manual_watch' {name, careers}; 'excluded' names are never added; 'boards' lists job boards of many companies. 'tech_only' (true when absent): these lists name software employers, so a search outside IT skips them; a list of your own trade sets it to false.",
   "tech_only": true,
   "excluded": [],
   "tier1_known": [],

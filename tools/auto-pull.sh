@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Keeps the owner's checkout (~/job-pilotto) on origin/main by itself (owner, 14 Oct 2026: a hand `git pull` found the checkout a day behind).
+# Keeps the owner's checkout (~/jobadabra) on origin/main by itself (owner, 14 Oct 2026: a hand `git pull` found the checkout a day behind).
 # A macOS launch agent runs it every 2 minutes. It only fast-forwards a clean `main`: a modified tracked file, another branch, a detached HEAD or a
 # diverged history is skipped (never a stash, reset or overwrite) and said after 10 minutes, hourly. A detached HEAD already on origin/main with no edited tracked file heals itself. After an update it says whether the app needs a
 # restart (main process, lib, preload, engine, extension) or only ⌘R (window). When the update touches what desktop/scripts/stage.mjs copies into
@@ -9,7 +9,7 @@
 #   tools/auto-pull.sh --install     write and load the launch agent (~/Library/LaunchAgents/com.jobpilotto.autopull.plist)
 #   tools/auto-pull.sh --uninstall   unload and remove it
 set -u
-# The checkout moves to ~/jobadabra (rebrand, 24 Oct 2026); ~/job-pilotto stays as a symlink for a while.
+# The checkout moved to ~/jobadabra (rebrand, 24 Oct 2026); ~/job-pilotto stays as a symlink for a while.
 REPO="${JP_AUTOPULL_REPO:-$([ -d "$HOME/jobadabra/.git" ] && echo "$HOME/jobadabra" || echo "$HOME/job-pilotto")}"
 LOG="${JP_AUTOPULL_LOG:-$HOME/Library/Logs/job-pilotto-autopull.log}"
 STATE="${JP_AUTOPULL_STATE:-$HOME/Library/Logs/job-pilotto-autopull.state}"

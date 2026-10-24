@@ -13,7 +13,7 @@ Detail moved to files here: [reproduce.md](reproduce.md) (decisions made, how to
 ## 0. Pick the work (one line each to the owner)
 - **The list is "Needs a fix" on `/admin/lab-form-filling`** (owner-only; Bearer = Keychain `job-pilotto.site.api_key`, memory `reference-owner-pages-access`; the same rows are in `?json`).
   Worst first: regressions, the earliest stop, the least filled form. A form reached with under half its asked fields filled is a **shortfall**. A code or bot check is a documented hold, not on the list.
-- **Take a CAUSE, not a row** (owner, 11 Oct 2026; `docs/rules/rounds.md`): the **By cause** tab, or `~/job-pilotto-site/tools/site-run.sh node jobs/needs-fix-causes.mjs --rows`. A row "Run first" (never recorded, or not since its fix) is the recorder's, not a fix.
+- **Take a CAUSE, not a row** (owner, 11 Oct 2026; `docs/rules/rounds.md`): the **By cause** tab, or `~/jobadabra-web/tools/site-run.sh node jobs/needs-fix-causes.mjs --rows`. A row "Run first" (never recorded, or not since its fix) is the recorder's, not a fix.
   Weigh by demand (the scorecard's "Of matched jobs"); a "Blind spot" platform (real fills worse than the tests) goes first: its signal is in `record-applying-sites` "Reading real use".
 - **Also the open fill-failure issues** (`gh issue list -R GarryOne/jobadabra-lab --label fill-failure --state open`; one per field a real fill left, with its build
   and snapshot): `node tools/fill-fixture.mjs <n> --repo GarryOne/jobadabra-lab` makes the replay fixture (red until fixed: your reproducer, it lands with the fix);

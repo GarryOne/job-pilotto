@@ -13,7 +13,7 @@ import {formGone} from './session-needs.js';  // cycle by design: used inside fu
 // "Form completion", as on the website: where, "16 / 17 required fields" and the bar always; the fields folded under
 // them: what's left first, then each filled one with its time since the fill started (the first field filled).
 // "Before you submit": what decides an application more than the CV, from what the form says is still open. The knockout questions (a hiring system can be set to
-// reject on them: private research job-pilotto-internal:docs/research/ats-reddit-2026-10.md) and which CV goes in: the general one, or one tailored to this job, with a way to tailor it.
+// reject on them: private research jobadabra-lab:docs/research/ats-reddit-2026-10.md) and which CV goes in: the general one, or one tailored to this job, with a way to tailor it.
 const fullKey = url => String(url || '').trim().replace(/\/$/, '');
 const cvSeen = new Map();   // job url → {at, info}
 async function cvInfo(url) {

@@ -1,4 +1,4 @@
-"""The starting sources are central (6 Oct 2026): the public starter feeds and seed lists are empty, the central scout (job-pilotto-internal)
+"""The starting sources are central (6 Oct 2026): the public starter feeds and seed lists are empty, the central scout (jobadabra-lab)
 publishes them in the employer index with their places and role mix, and an install ignores the copies of the old shipped lists it still has."""
 import json
 import tempfile

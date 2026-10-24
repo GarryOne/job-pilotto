@@ -18,7 +18,7 @@ const files = () => execFileSync('git', ['ls-files', '-z'], {cwd: repo, maxBuffe
 
 test('no price in a button, hint, tooltip or dialog before the action: the words say what it does, not what it costs', () => {
   const all = files();
-  // The website's folders are in the private repo job-pilotto-site: its CI runs this test over the joined tree, where they must be scanned too.
+  // The website's folders are in the private repo jobadabra-web: its CI runs this test over the joined tree, where they must be scanned too.
   const folders = [/^desktop\/renderer\//, /^desktop\/lib\//, /^extension\//, ...(existsSync(join(repo, 'admin')) ? [/^web\/public\//, /^preview\/public\//] : [])];
   for (const folder of folders) assert.ok(all.some(file => folder.test(file)), `${folder} is scanned`);
   const found = all.flatMap(file => readFileSync(join(repo, file), 'utf8').split('\n').map((line, i) => [file, i + 1, line.trim()])

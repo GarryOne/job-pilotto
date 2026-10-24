@@ -1,4 +1,4 @@
-// Ready to send (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md): which jobs the night prepares (kit + tailored CV + cover letter) and whether one is prepared.
+// Ready to send (private spec jobadabra-lab:docs/specs/2026-10-17-ready-to-send.md): which jobs the night prepares (kit + tailored CV + cover letter) and whether one is prepared.
 // Pure, no Electron: the task (kit-handlers.js) and the queue views read it. "Prepared" is honest: the answers are predicted from the posting and the
 // profile; a form's own questions are only known when the fill reads it, so nothing here says "verified". Guarded by desktop/test/ready.test.js.
 import {kitOf} from './store/kit-section.js';

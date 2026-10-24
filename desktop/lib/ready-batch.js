@@ -1,4 +1,4 @@
-// Ready to send, tonight's batch (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md): which finished jobs go to the night, and the batch the site takes (the contact, your facts for the AI, and per job: the kit,
+// Ready to send, tonight's batch (private spec jobadabra-lab:docs/specs/2026-10-17-ready-to-send.md): which finished jobs go to the night, and the batch the site takes (the contact, your facts for the AI, and per job: the kit,
 // the tailored CV and the cover letter PDF as the extension would upload them). Everything it reads comes in as a function, so a test needs no store, no Electron and no Notion. Guard: test/ready-batch.test.js.
 import {DEFAULT_MIN_FIT, DEFAULT_PER_NIGHT, complete} from './ready.js';
 import {chosen} from './ai/index.js';

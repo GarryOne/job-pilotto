@@ -1,4 +1,4 @@
-// A host as the usage-weighted pool may send it (private spec job-pilotto-internal:docs/specs/2026-10-10-usage-weighted-pool.md): a plain host name, or null. Never trimmed into shape, so a
+// A host as the usage-weighted pool may send it (private spec jobadabra-lab:docs/specs/2026-10-10-usage-weighted-pool.md): a plain host name, or null. Never trimmed into shape, so a
 // path, query, port, user, token or address cannot ride along. The site checks again (site/src/hostuse.js); both read the same cases (site/test/host-cases.json,
 // test/host-clean.test.js).
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;

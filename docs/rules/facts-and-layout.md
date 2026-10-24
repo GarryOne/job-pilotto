@@ -27,9 +27,9 @@ Reference, read when the task touches these areas. Linked from CLAUDE.md. For an
   facts + fit for added jobs (LinkedIn/Glassdoor/Indeed are never fetched: `ledger.NO_FETCH`), `passwords.py`.
 - `src/notion/`: `client.py`, `matches.py`, `ledger.py` (record frozen at Applied + 📈 Application Events), `funnel.py` (🎯 Pipeline, no AI).
 - `config/`: `preferences.json`, `sources.json`, `scout_seeds.json` (a user's own additions only). Starting sources are central
-  (`job-pilotto-internal`), published in the employer index; old shipped lists are ignored (`src/legacy_lists.py`).
+  (`jobadabra-lab`), published in the employer index; old shipped lists are ignored (`src/legacy_lists.py`).
 - `desktop/lib/interviews.js` + Interviews page: records (mic left, call audio right; consent box each time), drafts and recordings stay on the Mac.
-- **Product vs personal.** Product (the owner's Cloudflare account): one worker `www`, its code in the private repo `job-pilotto-site` (`site/` there) → https://www.jobpilotto.top (website, Pro
+- **Product vs personal.** Product (the owner's Cloudflare account): one worker `www`, its code in the private repo `jobadabra-web` (`site/` there) → https://www.jobpilotto.top (website, Pro
   waitlist, Notion sign-in, `/report/fill-failure`). Personal (per user, set up in the app): their Telegram bot and scheduled runs (their private repo).
 - `worker/` is the Telegram bot: run locally with long polling (`desktop/lib/telegram.js`), or uploaded to the user's own Cloudflare account
   (`desktop/lib/telegram-cloud.js`, `settings.telegramCloud`).
@@ -38,7 +38,7 @@ Reference, read when the task touches these areas. Linked from CLAUDE.md. For an
 - `desktop/lib/github.js`: **Always on** as a GitHub App on one repo (`<user>/jobadabra-personal-always-on`, older `job-pilotto-private`, from template `GarryOne/job-pilotto-starter`,
   published by `tools/publish-starter.sh`); the Jobs list then comes from the latest `job-pilotto-jobs-db` artifact.
 - Form-filling improvement: each fill logs to Agent Runs; `tools/fill-failures.py` groups what was left; skill `record-applying-sites`. Fill failures
-  are fixed by recipes (the proposer and the canary); triage lives in `job-pilotto-internal`.
+  are fixed by recipes (the proposer and the canary); triage lives in `jobadabra-lab`.
 - Notion IDs have no defaults in code: `.env`, repository variables, or the Desktop App.
 - **The terminal follows the Desktop App only on request** (`src/paths.py` `follow_app`; owner, 18 Oct 2026): with the app set up and no `JOB_PILOTTO_DATA_DIR` +
   `JOB_PILOTTO_CONFIG_DIR`, any engine start that is not the app (terminal, test, agent) is REFUSED at import, before a file is opened. The owner's own run sets

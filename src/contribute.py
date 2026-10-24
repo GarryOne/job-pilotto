@@ -1,4 +1,4 @@
-"""Opt-out ("Help the pool grow", on by default): tell the central pool which employer career pages and job boards this install reads, with coarse tags (private spec job-pilotto-internal:docs/specs/2026-09-30-pool-contributions.md).
+"""Opt-out ("Help the pool grow", on by default): tell the central pool which employer career pages and job boards this install reads, with coarse tags (private spec jobadabra-lab:docs/specs/2026-09-30-pool-contributions.md).
 
 Only public facts go up (ATS, board slug, company, a fixed board id, job counts; facts about sites: a company's job page without its query,
 a site only a browser reads, a dead page) plus role families and regions from fixed lists, and up to 40 public posting addresses (src/contribute_candidates.py: address, host and

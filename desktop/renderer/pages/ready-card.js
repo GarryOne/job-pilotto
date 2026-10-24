@@ -1,4 +1,4 @@
-// The Ready to send card on Actions (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md), always shown (owner, 18 Oct 2026); it works only when the site says this install is the owner's, else it says why with its buttons off: send tonight's finished jobs to be filled overnight,
+// The Ready to send card on Actions (private spec jobadabra-lab:docs/specs/2026-10-17-ready-to-send.md), always shown (owner, 18 Oct 2026); it works only when the site says this install is the owner's, else it says why with its buttons off: send tonight's finished jobs to be filled overnight,
 // start the night now (the test), and in the morning one row per form (complete, what is left, a wall) with Done and the night's video of its fill (a popup). You press Submit; nothing here does. Built from the task-card parts the Tailor card uses (.task-card, .task-body, pill). Guard: test/ready-card.test.js.
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';

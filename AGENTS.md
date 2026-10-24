@@ -7,7 +7,7 @@ duplicate what's here — read these instead, and update them if something's mis
 - **`docs/ARCHITECTURE.md`** — the session-start map (engine, app, extension, website, bot, Notion).
   Read it once at the start of a session, then `node desktop/scripts/codemap.mjs <words>` for the file. Written for every agent:
   Grok, Claude Code, Codex, DeepSeek.
-- **The website and /admin are not in this repo** — they live in the private repo `GarryOne/jobadabra-web` (`~/job-pilotto-site`). Never recreate `site/` here; a site change is a PR there; private reads public, public never reads private; the route contract is `docs/site-routes.json` here; for a change on both sides the site PR lands first, then the public one (owner, 21 Oct 2026). Read `docs/rules/private-site.md`.
+- **The website and /admin are not in this repo** — they live in the private repo `GarryOne/jobadabra-web` (`~/jobadabra-web`). Never recreate `site/` here; a site change is a PR there; private reads public, public never reads private; the route contract is `docs/site-routes.json` here; for a change on both sides the site PR lands first, then the public one (owner, 21 Oct 2026). Read `docs/rules/private-site.md`.
 - **`CLAUDE.md`** — the rules every session needs, one line each (safety, working rules, the change loop, tests), linking to
   **`docs/rules/`** for detail and `docs/rules/why.md` for the incident behind each rule. Written for Claude Code but applies to any agent.
 - **notion-map** skill (private, `~/.claude/skills/notion-map` on the owner's Mac) — every Notion page/database ID this project uses, and

@@ -160,9 +160,9 @@ in that file next time — keep evolving it.
 ## Before you start (session/tooling gotchas, 25 Sep 2026)
 - **This skill is project-scoped to job-pilotto.** If the session started in a different working
   directory, the `Skill` tool's registry does not pick it up even after `cd`-ing into
-  `/Users/mac/job-pilotto` mid-session (observed: two failed `Skill("apply-to-job")` calls in a row).
+  `/Users/mac/jobadabra` mid-session (observed: two failed `Skill("apply-to-job")` calls in a row).
   Don't retry the `Skill` tool after a `cd` — go straight to `Read` on
-  `/Users/mac/job-pilotto/.claude/skills/apply-to-job/SKILL.md` and follow it as plain instructions.
+  `/Users/mac/jobadabra/.claude/skills/apply-to-job/SKILL.md` and follow it as plain instructions.
 - **Kit lookup: skip the schema fetch.** The Applications data source URL
   (`collection://346d7756-bafc-4dff-881f-2710819d90da`) and the `Job URL` column name are already
   known (see Inputs below) — go straight to a `notion-query-data-sources` SQL query
