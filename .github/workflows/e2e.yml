@@ -411,7 +411,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          sparse-checkout: desktop/e2e
+          sparse-checkout: |
+            desktop/e2e
+            tools/merge-e2e-report.sh
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -424,10 +426,9 @@ jobs:
         id: merge
         working-directory: desktop/e2e
         run: |
-          if ! ls "$GITHUB_WORKSPACE"/blob-reports/*.zip > /dev/null 2>&1; then echo "No suite wrote a report (a build older than the HTML report): none for this run." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
           npm ci || npm install
-          PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports -c report/merge.config.mjs --reporter html "$GITHUB_WORKSPACE/blob-reports"
-          echo "made=1" >> "$GITHUB_OUTPUT"
+          # A report never decides the run: a corrupt blob is left out and named, a failed merge is said, the job stays green (tools/merge-e2e-report.sh)
+          bash "$GITHUB_WORKSPACE/tools/merge-e2e-report.sh" "$GITHUB_WORKSPACE/blob-reports" "$GITHUB_WORKSPACE/e2e-report"
       - uses: actions/upload-artifact@v6
         if: steps.merge.outputs.made == '1'
         with:
