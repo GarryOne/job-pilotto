@@ -19,7 +19,7 @@ export function createAppAllowance(ctx) {
   const licenseState = () => {
     const base = DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 20, daysLeft: 41, ended: false} : getLicense().state();
     const plan = getPlan().state(), proMode = ['test', 'live'].includes(plan.mode) ? plan.mode : undefined;
-    if (!base.licensed && plan.plan === 'pro') return {...base, licensed: true, license: {id: 'pro', name: 'Pro', kind: 'pro', until: null}, ended: false, proMode, pro: {creditPercent: plan.creditPercent, warn: plan.warn}};
+    if (!base.licensed && plan.plan === 'pro') return {...base, licensed: true, license: {id: 'pro', name: 'Pro', kind: 'pro', until: null}, ended: false, proMode, pro: {creditPercent: plan.hasCredit === false ? null : plan.creditPercent, warn: plan.warn, hasCredit: plan.hasCredit !== false, package: plan.package || null}};
     return {...base, proMode, offer: plan.offer};
   };
   // Guard for what starts NEW work (Prepare kit, Fill in Chrome / Apply with Claude, manual searches): once the free allowance
@@ -27,6 +27,7 @@ export function createAppAllowance(ctx) {
   function allowanceBlock() {
     const state = licenseState();
     // Pro's credit is gone and our AI is the engine: no free fallback, top-up or own key (an application in progress finishes; this guards what starts new).
+    if (!DEMO && state.pro?.hasCredit === false && aiFree.isOn(getStorage().settings())) return {ok: false, credit: true, error: 'Our AI needs AI credit. Add credit, or use your own AI key in Settings → Connections → AI (your own key is unlimited).'};
     if (!DEMO && state.pro?.warn === 0 && aiFree.isOn(getStorage().settings())) return {ok: false, credit: true, error: 'Your AI credit is used up. Add credit, or use your own AI key in Settings → Connections → AI (your own key is unlimited).'};
     if (DEMO || !state.ended) return null;
     toWindow('allowance', state);
