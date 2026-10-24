@@ -1,0 +1,872 @@
+{
+ "sidebar": {
+  "cv": {
+   "name": "Mara Lindqvist",
+   "location": "Gothenburg, Sweden",
+   "summary": "Platform engineer with ten years of experience building reliable cloud infrastructure for logistics and retail companies. I enjoy turning messy deployment processes into calm, well-documented paved roads that product teams actually like to use.",
+   "links": [
+    {
+     "text": "mara.lindqvist@example.org",
+     "href": "mailto:mara.lindqvist@example.org"
+    },
+    {
+     "text": "+46 70 000 00 00",
+     "href": "tel:+46700000000"
+    }
+   ],
+   "jobs": [
+    {
+     "company": "Nordfrakt AB",
+     "roles": [
+      {
+       "title": "Senior Platform Engineer",
+       "period": "Mar 2020 – Present",
+       "place": "Gothenburg",
+       "bullets": [
+        "Moved 140 services from hand-built virtual machines to Kubernetes on AWS, cutting release time from two days to forty minutes.",
+        "Built the on-call handbook and the incident review routine used by eight teams.",
+        "Wrote Terraform modules for networks, databases and queues that every new service starts from.",
+        "Mentored four engineers who now run the platform's weekly office hours."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Kvarn Retail",
+     "roles": [
+      {
+       "title": "Systems Engineer",
+       "period": "Aug 2016 – Feb 2020",
+       "place": "Malmö",
+       "bullets": [
+        "Ran the PostgreSQL fleet behind the web shop, 30 clusters, with point-in-time recovery tested every month.",
+        "Introduced Prometheus and Grafana dashboards for checkout latency and stock updates.",
+        "Automated server patching with Ansible, from a full weekend of work to an unattended night run."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Solvik Data",
+     "roles": [
+      {
+       "title": "Junior Developer",
+       "period": "Sep 2014 – Jul 2016",
+       "place": "Gothenburg",
+       "bullets": [
+        "Built internal tools in Python and Go for billing reports.",
+        "Kept the build servers running and documented how to rebuild them from scratch."
+       ]
+      }
+     ]
+    }
+   ],
+   "education": [
+    {
+     "school": "Chalmers University",
+     "degree": "MSc Computer Science",
+     "period": "2012 – 2014"
+    }
+   ],
+   "skills": "Kubernetes, Terraform, Python, Go, PostgreSQL, Prometheus, Grafana, AWS, incident response",
+   "languages": "Swedish (native), English (fluent), German (good)"
+  },
+  "tailoring": {
+   "summary": "Site reliability engineer with ten years of experience running reliable cloud infrastructure on Kubernetes and AWS for logistics and retail companies, with a focus on incident response and calm, well-documented paved roads.",
+   "jobs": [
+    {
+     "company": "Nordfrakt AB",
+     "roles": [
+      {
+       "title": "Senior Platform Engineer",
+       "bullets": [
+        {
+         "source": 1,
+         "text": "Built the incident review routine and the on-call handbook used by eight teams."
+        },
+        {
+         "source": 0,
+         "text": "Moved 140 services from hand-built virtual machines to Kubernetes on AWS, cutting release time from two days to forty minutes."
+        },
+        {
+         "source": 2,
+         "text": "Wrote Terraform modules for networks, databases and queues that every new service starts from."
+        },
+        {
+         "source": 3,
+         "text": "Mentored four engineers who now run the platform's weekly office hours."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Kvarn Retail",
+     "roles": [
+      {
+       "title": "Systems Engineer",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Ran the PostgreSQL fleet behind the web shop, 30 clusters, with point-in-time recovery tested every month."
+        },
+        {
+         "source": 1,
+         "text": "Introduced Prometheus monitoring and Grafana dashboards for checkout latency and stock updates."
+        },
+        {
+         "source": 2,
+         "text": "Automated server patching with Ansible, from a full weekend of work to an unattended night run."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Solvik Data",
+     "roles": [
+      {
+       "title": "Junior Developer",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Built internal tools in Python and Go for billing reports."
+        },
+        {
+         "source": 1,
+         "text": "Kept the build servers running and documented how to rebuild them from scratch."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    }
+   ],
+   "changes": [
+    {
+     "where": "Summary",
+     "change": "Led with what the posting asks for",
+     "why": "The posting asks for it first"
+    }
+   ]
+  }
+ },
+ "band": {
+  "cv": {
+   "name": "Kofi Mensah-Larsen",
+   "location": "Copenhagen, Denmark",
+   "summary": "Product designer with eight years in fintech and public services. I run research with real users early, keep a design system people actually use, and write specs that engineers can build from without a meeting.",
+   "links": [
+    {
+     "text": "kofi.ml@example.com",
+     "href": "mailto:kofi.ml@example.com"
+    },
+    {
+     "text": "+45 20 00 00 00",
+     "href": "tel:+4520000000"
+    },
+    {
+     "text": "kofi-example.design",
+     "href": "https://kofi-example.design"
+    }
+   ],
+   "jobs": [
+    {
+     "company": "Klarhed Bank",
+     "roles": [
+      {
+       "title": "Senior Product Designer",
+       "period": "2021 – Present",
+       "place": "Copenhagen",
+       "bullets": [
+        "Led the redesign of the mobile onboarding flow; completed sign-ups rose from 61% to 78% in six months.",
+        "Built and maintain the bank's design system in Figma with 140 components and written usage rules.",
+        "Ran fortnightly usability sessions with customers, including people using screen readers.",
+        "Worked with legal to rewrite consent screens in plain Danish and English."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Borgerservice Lab",
+     "roles": [
+      {
+       "title": "Product Designer",
+       "period": "2018 – 2021",
+       "place": "Aarhus",
+       "bullets": [
+        "Designed the digital form for parental leave used by 40,000 families a year.",
+        "Introduced service blueprints so caseworkers and designers shared one picture of each process.",
+        "Made every new screen pass WCAG 2.1 AA before release."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Studio Fjord",
+     "roles": [
+      {
+       "title": "Junior Designer",
+       "period": "2016 – 2018",
+       "place": "Copenhagen",
+       "bullets": [
+        "Designed websites and brand material for small Nordic companies.",
+        "Prepared print files and presented concepts to clients."
+       ]
+      }
+     ]
+    }
+   ],
+   "education": [
+    {
+     "school": "Royal Danish Academy",
+     "degree": "MA Interaction Design",
+     "period": "2014 – 2016"
+    }
+   ],
+   "skills": "Figma, User research, Design systems, Prototyping, Accessibility, Service design, Workshops",
+   "languages": "Danish, English, Twi"
+  },
+  "tailoring": {
+   "summary": "Product designer with eight years in fintech and public services, focused on accessible onboarding. I test with real users early, keep a design system people actually use, and write specs engineers can build from.",
+   "jobs": [
+    {
+     "company": "Klarhed Bank",
+     "roles": [
+      {
+       "title": "Senior Product Designer",
+       "bullets": [
+        {
+         "source": 2,
+         "text": "Ran fortnightly accessibility and usability sessions with customers, including screen reader users."
+        },
+        {
+         "source": 0,
+         "text": "Led the redesign of the mobile onboarding flow; completed sign-ups rose from 61% to 78% in six months."
+        },
+        {
+         "source": 1,
+         "text": "Built and maintain the bank's design system in Figma with 140 components and written usage rules."
+        },
+        {
+         "source": 3,
+         "text": "Worked with legal to rewrite consent screens in plain Danish and English."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Borgerservice Lab",
+     "roles": [
+      {
+       "title": "Product Designer",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Designed the digital form for parental leave used by 40,000 families a year."
+        },
+        {
+         "source": 1,
+         "text": "Introduced service blueprints so caseworkers and designers shared one picture of each process."
+        },
+        {
+         "source": 2,
+         "text": "Made every new screen pass WCAG 2.1 AA before release."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Studio Fjord",
+     "roles": [
+      {
+       "title": "Junior Designer",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Designed websites and brand material for small Nordic companies."
+        },
+        {
+         "source": 1,
+         "text": "Prepared print files and presented concepts to clients."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    }
+   ],
+   "changes": [
+    {
+     "where": "Summary",
+     "change": "Led with what the posting asks for",
+     "why": "The posting asks for it first"
+    }
+   ]
+  }
+ },
+ "french": {
+  "cv": {
+   "name": "Camille Roux",
+   "location": "Lyon, France",
+   "summary": "Comptable avec neuf ans d'expérience en cabinet puis en entreprise industrielle. J'aime les clôtures bien préparées, les procédures écrites et les échanges simples avec les opérationnels comme avec les commissaires aux comptes.",
+   "links": [
+    {
+     "text": "camille.roux@example.fr",
+     "href": "mailto:camille.roux@example.fr"
+    },
+    {
+     "text": "06 00 00 00 00",
+     "href": "tel:0600000000"
+    }
+   ],
+   "jobs": [
+    {
+     "company": "Rhône Équipements",
+     "roles": [
+      {
+       "title": "Comptable générale",
+       "period": "Depuis 2019",
+       "place": "Villeurbanne",
+       "bullets": [
+        "Prépare les clôtures mensuelles et annuelles d'une filiale de 60 millions d'euros de chiffre d'affaires.",
+        "A réduit le délai de clôture de huit à cinq jours ouvrés en automatisant les rapprochements bancaires.",
+        "Suit la comptabilité fournisseurs, soit environ 1 200 factures par mois, et les relances.",
+        "Interlocutrice des commissaires aux comptes pendant les audits."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Cabinet Martel & Associés",
+     "roles": [
+      {
+       "title": "Assistante comptable",
+       "period": "2014 – 2019",
+       "place": "Lyon",
+       "bullets": [
+        "Tenue de la comptabilité d'une trentaine de PME et associations.",
+        "Préparation des déclarations de TVA et des liasses fiscales.",
+        "Formation des nouveaux assistants aux outils du cabinet."
+       ]
+      }
+     ]
+    }
+   ],
+   "education": [
+    {
+     "school": "Université Lyon 3",
+     "degree": "DCG",
+     "period": "2014"
+    }
+   ],
+   "skills": "Comptabilité fournisseurs, rapprochements bancaires, SAP FI, Excel avancé, clôtures mensuelles, contrôle interne",
+   "languages": "Français (langue maternelle), anglais (courant), italien (notions)"
+  },
+  "tailoring": {
+   "summary": "Comptable avec neuf ans d'expérience en cabinet puis en entreprise industrielle, spécialiste des clôtures mensuelles rapides. J'aime les procédures écrites et les échanges simples avec les opérationnels et les commissaires aux comptes.",
+   "jobs": [
+    {
+     "company": "Rhône Équipements",
+     "roles": [
+      {
+       "title": "Comptable générale",
+       "bullets": [
+        {
+         "source": 1,
+         "text": "A automatisé les rapprochements bancaires, ce qui a réduit le délai de clôture de huit à cinq jours ouvrés."
+        },
+        {
+         "source": 0,
+         "text": "Prépare les clôtures mensuelles et annuelles d'une filiale de 60 millions d'euros de chiffre d'affaires."
+        },
+        {
+         "source": 2,
+         "text": "Suit la comptabilité fournisseurs, soit environ 1 200 factures par mois, et les relances."
+        },
+        {
+         "source": 3,
+         "text": "Interlocutrice des commissaires aux comptes pendant les audits."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Cabinet Martel & Associés",
+     "roles": [
+      {
+       "title": "Assistante comptable",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Tenue de la comptabilité d'une trentaine de PME et associations."
+        },
+        {
+         "source": 1,
+         "text": "Préparation des déclarations de TVA et des liasses fiscales."
+        },
+        {
+         "source": 2,
+         "text": "Formation des nouveaux assistants aux outils du cabinet."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    }
+   ],
+   "changes": [
+    {
+     "where": "Summary",
+     "change": "Led with what the posting asks for",
+     "why": "The posting asks for it first"
+    }
+   ]
+  }
+ },
+ "table": {
+  "cv": {
+   "name": "Aroha Ngata-Whitfield",
+   "location": "Dublin, Ireland",
+   "summary": "Registered nurse with eleven years in emergency and cardiac care in New Zealand and Ireland. Calm in busy departments, careful with documentation, and used to teaching students and new graduates on shift.",
+   "links": [
+    {
+     "text": "aroha.nw@example.ie",
+     "href": "mailto:aroha.nw@example.ie"
+    },
+    {
+     "text": "linkedin.com/in/aroha-example",
+     "href": "https://linkedin.com/in/aroha-example"
+    }
+   ],
+   "jobs": [
+    {
+     "company": "St. Brigid's Hospital",
+     "roles": [
+      {
+       "title": "Clinical Nurse Manager 1, Emergency Department",
+       "period": "2020 – Present",
+       "place": "Dublin",
+       "bullets": [
+        "Lead a team of 14 nurses on rotating shifts in a department that sees about 230 patients a day.",
+        "Rewrote the triage handover checklist; missed observations at handover fell by half in the next audit.",
+        "Coordinate bed flow with the patient flow team during winter surge periods.",
+        "Precept student nurses from two universities and sign off their competencies.",
+        "Member of the hospital's sepsis working group, presenting audit results each quarter."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Waitemata Heart Centre",
+     "roles": [
+      {
+       "title": "Registered Nurse, Cardiac Ward",
+       "period": "2016 – 2020",
+       "place": "Auckland",
+       "bullets": [
+        "Cared for patients after cardiac surgery and catheter procedures, including telemetry monitoring.",
+        "Taught patients and families about medication and recovery before discharge.",
+        "Helped move the ward from paper charts to electronic observations.",
+        "Covered as shift coordinator on weekends."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Waikato General",
+     "roles": [
+      {
+       "title": "Graduate and Staff Nurse, Medical Ward",
+       "period": "2013 – 2016",
+       "place": "Hamilton",
+       "bullets": [
+        "Completed the new graduate programme and stayed on as staff nurse.",
+        "Looked after up to six patients per shift on a busy medical ward.",
+        "Took part in the falls prevention project on night shifts."
+       ]
+      }
+     ]
+    }
+   ],
+   "education": [
+    {
+     "school": "University of Waikato",
+     "degree": "Bachelor of Nursing",
+     "period": "2013"
+    },
+    {
+     "school": "University of Auckland",
+     "degree": "Postgraduate Certificate in Emergency Nursing",
+     "period": "2019"
+    }
+   ],
+   "skills": "Triage, ALS, sepsis pathway, telemetry, IV cannulation, wound care, medication safety, patient education, electronic health records",
+   "languages": "English (native), Māori (conversational), Irish (beginner)"
+  },
+  "tailoring": {
+   "summary": "Emergency nurse with eleven years in emergency and cardiac care in New Zealand and Ireland, now leading a shift team. Calm in busy departments, careful with documentation, and used to teaching students on shift.",
+   "jobs": [
+    {
+     "company": "St. Brigid's Hospital",
+     "roles": [
+      {
+       "title": "Clinical Nurse Manager 1, Emergency Department",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Lead a team of 14 nurses on rotating shifts in a department that sees about 230 patients a day."
+        },
+        {
+         "source": 2,
+         "text": "Coordinate patient flow and bed management with the flow team during winter surge periods."
+        },
+        {
+         "source": 1,
+         "text": "Rewrote the triage handover checklist; missed observations at handover fell by half in the next audit."
+        },
+        {
+         "source": 3,
+         "text": "Precept student nurses from two universities and sign off their competencies."
+        },
+        {
+         "source": 4,
+         "text": "Member of the hospital's sepsis working group, presenting audit results each quarter."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Waitemata Heart Centre",
+     "roles": [
+      {
+       "title": "Registered Nurse, Cardiac Ward",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Cared for patients after cardiac surgery and catheter procedures, including telemetry monitoring."
+        },
+        {
+         "source": 1,
+         "text": "Taught patients and families about medication and recovery before discharge."
+        },
+        {
+         "source": 2,
+         "text": "Helped move the ward from paper charts to electronic observations."
+        },
+        {
+         "source": 3,
+         "text": "Covered as shift coordinator on weekends."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Waikato General",
+     "roles": [
+      {
+       "title": "Graduate and Staff Nurse, Medical Ward",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Completed the new graduate programme and stayed on as staff nurse."
+        },
+        {
+         "source": 1,
+         "text": "Looked after up to six patients per shift on a busy medical ward."
+        },
+        {
+         "source": 2,
+         "text": "Took part in the falls prevention project on night shifts."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    }
+   ],
+   "changes": [
+    {
+     "where": "Summary",
+     "change": "Led with what the posting asks for",
+     "why": "The posting asks for it first"
+    }
+   ]
+  }
+ },
+ "word-like": {
+  "cv": {
+   "name": "Tomasz Wierzbicki",
+   "location": "Wroclaw, Poland",
+   "summary": "Operations manager with twelve years in warehousing and road freight. I run sites where people know what is expected of them, stock is where the system says it is, and trucks leave on time. Comfortable with budgets, union talks and new warehouse software.",
+   "links": [
+    {
+     "text": "tomasz.w@example.net",
+     "href": "mailto:tomasz.w@example.net"
+    },
+    {
+     "text": "+48 600 000 000",
+     "href": "tel:+48600000000"
+    }
+   ],
+   "jobs": [
+    {
+     "company": "Baltyk Logistics",
+     "roles": [
+      {
+       "title": "Site Manager",
+       "period": "Jan 2019 - Present",
+       "place": "",
+       "bullets": [
+        "Run a 40,000 square metre cross-dock with 180 staff over three shifts and a yearly budget of 9 million euros.",
+        "Cut picking errors from 1.8% to 0.4% by re-slotting fast movers and retraining team leaders on scanner use.",
+        "Led the move to a new warehouse management system without stopping outbound shipments for a single day.",
+        "Agreed a new shift pattern with the works council that lowered overtime by a quarter.",
+        "Set up a weekly safety walk; lost-time incidents went from eleven to two a year."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Odra Freight",
+     "roles": [
+      {
+       "title": "Shift Lead",
+       "period": "Mar 2014 - Dec 2018",
+       "place": "",
+       "bullets": [
+        "Planned daily loading for 60 trucks to Germany and Czechia, working with dispatch on late changes.",
+        "Trained new forklift drivers and kept the training records ready for audits.",
+        "Introduced a simple board for damaged goods that halved the time claims stayed open.",
+        "Covered for the site manager during holidays, including customer calls and staffing."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Nadwislanski Magazyn",
+     "roles": [
+      {
+       "title": "Warehouse Operative",
+       "period": "Jun 2011 - Feb 2014",
+       "place": "",
+       "bullets": [
+        "Picked and packed orders for retail customers, later promoted to team leader of eight people.",
+        "Kept the returns area tidy and processed returns within two working days."
+       ]
+      }
+     ]
+    }
+   ],
+   "education": [],
+   "skills": "Warehouse management systems, budgeting, shift planning, labour relations, lean, forklift licence",
+   "languages": "Polish (native), English (fluent), German (basic)"
+  },
+  "tailoring": {
+   "summary": "Warehouse operations manager with twelve years in warehousing and road freight. I run sites where people know what is expected of them, stock is where the system says it is, and trucks leave on time. Comfortable with budgets, works councils and WMS rollouts.",
+   "jobs": [
+    {
+     "company": "Baltyk Logistics",
+     "roles": [
+      {
+       "title": "Site Manager",
+       "bullets": [
+        {
+         "source": 2,
+         "text": "Led the WMS rollout at the site without stopping outbound shipments for a single day."
+        },
+        {
+         "source": 1,
+         "text": "Cut picking errors from 1.8% to 0.4% by re-slotting fast movers and retraining team leaders on scanner use."
+        },
+        {
+         "source": 0,
+         "text": "Run a 40,000 square metre cross-dock with 180 staff over three shifts and a yearly budget of 9 million euros."
+        },
+        {
+         "source": 3,
+         "text": "Agreed a new shift pattern with the works council that lowered overtime by a quarter."
+        },
+        {
+         "source": 4,
+         "text": "Set up a weekly safety walk; lost-time incidents went from eleven to two a year."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Odra Freight",
+     "roles": [
+      {
+       "title": "Shift Lead",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Planned daily loading for 60 trucks to Germany and Czechia, working with dispatch on late changes."
+        },
+        {
+         "source": 1,
+         "text": "Trained new forklift drivers and kept the training records ready for audits."
+        },
+        {
+         "source": 2,
+         "text": "Introduced a simple board for damaged goods that halved the time claims stayed open."
+        },
+        {
+         "source": 3,
+         "text": "Covered for the site manager during holidays, including customer calls and staffing."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Nadwislanski Magazyn",
+     "roles": [
+      {
+       "title": "Warehouse Operative",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Picked and packed orders for retail customers, later promoted to team leader of eight people."
+        },
+        {
+         "source": 1,
+         "text": "Kept the returns area tidy and processed returns within two working days."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    }
+   ],
+   "changes": [
+    {
+     "where": "Summary",
+     "change": "Led with what the posting asks for",
+     "why": "The posting asks for it first"
+    }
+   ]
+  }
+ },
+ "latex-like": {
+  "cv": {
+   "name": "Ines Albuquerque",
+   "location": "Porto, Portugal",
+   "summary": "Data engineer who builds batch and streaming pipelines for retail analytics. Careful about data quality, tests and documentation; happiest when analysts stop asking where a number came from.",
+   "links": [
+    {
+     "text": "ines.albuquerque@example.com",
+     "href": "mailto:ines.albuquerque@example.com"
+    },
+    {
+     "text": "github.com/ines-example",
+     "href": "https://github.com/ines-example"
+    }
+   ],
+   "jobs": [
+    {
+     "company": "Mercado Verde",
+     "roles": [
+      {
+       "title": "Data Engineer",
+       "period": "Feb 2021 - Present",
+       "place": "",
+       "bullets": [
+        "Built the nightly sales pipeline in Python and Spark that feeds 300 store dashboards before opening time.",
+        "Moved event ingestion from cron scripts to Kafka consumers with alerting on lag and schema changes.",
+        "Wrote the data contract template now used by four product teams."
+       ]
+      }
+     ]
+    },
+    {
+     "company": "Tejo Seguros",
+     "roles": [
+      {
+       "title": "Analytics Developer",
+       "period": "Sep 2017 - Jan 2021",
+       "place": "",
+       "bullets": [
+        "Maintained the claims warehouse in PostgreSQL and cut the monthly close report from six hours to forty minutes.",
+        "Added row-level tests that caught duplicate policies before they reached finance."
+       ]
+      }
+     ]
+    }
+   ],
+   "education": [],
+   "skills": "Python, SQL, Spark, Kafka, Airflow, PostgreSQL, dbt, Docker",
+   "languages": "Portuguese (native), English (fluent), Spanish (good)"
+  },
+  "tailoring": {
+   "summary": "Data engineer who builds batch and streaming pipelines in Python, Spark and Kafka for retail analytics. Careful about data quality, tests and documentation; happiest when analysts trust every number.",
+   "jobs": [
+    {
+     "company": "Mercado Verde",
+     "roles": [
+      {
+       "title": "Data Engineer",
+       "bullets": [
+        {
+         "source": 1,
+         "text": "Moved event ingestion from cron scripts to Kafka consumers with alerting on lag and schema changes."
+        },
+        {
+         "source": 0,
+         "text": "Built the nightly sales pipeline in Python and Spark that feeds 300 store dashboards before opening time."
+        },
+        {
+         "source": 2,
+         "text": "Wrote the data contract template now used by four product teams."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    },
+    {
+     "company": "Tejo Seguros",
+     "roles": [
+      {
+       "title": "Analytics Developer",
+       "bullets": [
+        {
+         "source": 0,
+         "text": "Maintained the claims warehouse in PostgreSQL and cut the monthly close report from six hours to forty minutes."
+        },
+        {
+         "source": 1,
+         "text": "Added row-level tests that caught duplicate policies before they reached finance."
+        }
+       ],
+       "skills": ""
+      }
+     ]
+    }
+   ],
+   "changes": [
+    {
+     "where": "Summary",
+     "change": "Led with what the posting asks for",
+     "why": "The posting asks for it first"
+    }
+   ]
+  }
+ }
+}
