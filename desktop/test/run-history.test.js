@@ -209,3 +209,17 @@ test('every run kind\'s Mac row has a Result block, even a run with no message',
     }
   }
 });
+
+test('a run that finished with warning lines in its log is recorded "Warnings", the same word the list and the panel derive', () => {
+  const base = {kind: 'search', ok: true, trigger: 'you', startedAt: '2026-10-24T11:35:00Z', endedAt: '2026-10-24T11:35:23Z', new: 1};
+  const status = run => history.localRow({...base, ...run}).properties.Status.select.name;
+  // The AI answered 429 to every call: the engine's summary named no warning, the log did.
+  assert.equal(status({log: ['Scoring 1 job', 'RateLimitError: Error code: 429 - rate_limit_error', 'Done']}), 'Warnings');
+  assert.equal(status({log: ['Warning: place names were not translated (the AI call failed)']}), 'Warnings');
+  assert.equal(status({log: ['Scoring 1 job', 'Enriched 1 of 1 job(s); 0 failed']}), 'OK');
+  assert.equal(status({log: []}), 'OK');
+  assert.equal(status({ok: false, log: ['Warning: x']}), 'Failed');
+  // And read back, the row says warned: the list pill and the panel pill agree with the record.
+  const back = history.fromRow({properties: {Run: {title: [{plain_text: 'Job search · on this Mac'}]}, Status: {select: {name: 'Warnings'}}}, id: 'x', created_time: base.startedAt});
+  assert.equal(back.warned, true);
+});

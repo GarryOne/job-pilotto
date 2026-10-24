@@ -65,7 +65,9 @@ export function localRow(run, name = kind => kind) {
   const fresh = search && run.new != null ? (run.new ? `${run.new} new job${run.new === 1 ? '' : 's'}` : 'nothing new') : null;
   const why = [...(run.log || [])].reverse().find(line => /\bfailed:\s*\S/i.test(line));   // tracked() logs "<task> failed: <error>"
   const summary = run.ok ? (run.summary || run.problem || fresh || 'Done') : (run.problem || run.summary || why || `${name(run.kind)} failed`);
-  const warned = run.ok && (run.problem || run.warnings?.length);
+  // The row's Status is what the list and the panel read back (run-rows.js warned): it follows the one rule they share (renderer/run-status.js runWarned), so a run whose log
+  // has warning lines (a 429 retried 216 times) is recorded "Warnings", not "OK" (beta 13 Mac+Linux, beta 19 Windows: the list said "With warnings", the panel "Completed").
+  const warned = run.ok && (run.problem || run.warnings?.length || runWarned({...run, live: false, waiting: false, off: false}));
   const properties = {
     Run: {title: [{text: {content: `${name(run.kind)} · on this Mac`}}]},
     Started: {date: {start: run.startedAt}},
