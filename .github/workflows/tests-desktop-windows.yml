@@ -32,6 +32,7 @@ on:
       - 'desktop/lib/keychain.js'
       - 'desktop/lib/kill-tree.js'
       - 'desktop/lib/main-window.js'
+      - 'desktop/lib/office.js'
       - 'desktop/lib/orphans.js'
       - 'desktop/lib/pdf-edit/fonts.js'
       - 'desktop/lib/pipeline-env.js'
