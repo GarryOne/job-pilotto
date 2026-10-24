@@ -118,5 +118,14 @@ class OwnCountryTests(unittest.TestCase):
                 self.assertEqual(found_boards._shaped({'name': 'A', 'host': 'a.example', **board}, found)[0]['location'], '')
 
 
+class RetryTests(unittest.TestCase):
+    def test_a_board_with_nothing_relevant_is_tried_again_when_the_title_time_was_spent(self):
+        for over, relevant, kept in ((True, [], False), (False, [], True), (True, [{'title': 'Dev'}], True)):
+            with self.subTest(over=over, relevant=bool(relevant)), mock.patch('src.time_budget.over', return_value=over):
+                entry = {'form_for': 'https://a.example/q?w={role}'}
+                found_boards._retry_when_unjudged(entry, relevant)
+                self.assertEqual('form_for' in entry, kept)
+
+
 if __name__ == '__main__':
     unittest.main()
