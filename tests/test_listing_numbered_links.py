@@ -86,6 +86,18 @@ class NumberedLinksTests(unittest.TestCase):
         urls = careers_parse.job_links(jobs + footer, f'https://{HOST}/busca')
         self.assertTrue(urls and all('/jobs/' in url for url in urls), urls)
 
+    def test_cards_with_a_title_slug_and_a_short_number_are_one_shape(self):
+        """24 Oct 2026: a Moldovan board's 18 cards were /locuri-de-munca/<title>/<id>, ids of 4-6 digits, beside menu links with job words."""
+        menu = '<a href="/lucru-in-chisinau">Caută de lucru în Chișinău</a><a href="/lucru-dupa-companii">Caută de lucru după companii</a><a href="/lucru-dupa-orase">Orașe</a>'
+        cards = ''.join(f'<a href="/ro/locuri-de-munca/programator-{n}/{ident}">Programator {n}</a>' for n, ident in enumerate([4349, 78127, 144224, 144221, 141405, 125589]))
+        urls = careers_parse.job_links(menu + cards, f'https://{HOST}/busca')
+        self.assertEqual(len(urls), 6)
+        self.assertTrue(all('/locuri-de-munca/' in url for url in urls), urls)
+
+    def test_a_year_after_a_slug_is_not_a_card_number(self):
+        posts = ''.join(f'<a href="/blog/post-{n}/{2020 + n}">p</a>' for n in range(6))
+        self.assertEqual(careers_parse.job_links(posts, f'https://{HOST}/busca'), [])
+
 
 if __name__ == '__main__':
     unittest.main()
