@@ -100,7 +100,7 @@ For each issue, oldest high-severity first:
    - The page's all-time totals must equal the scorecard's (filed, real, false, precision). A difference is a stats bug: find it and fix it.
    - Spot-check 3 issues per detector: does its `resolution:` label match how it really ended (its closing comment, a commit)?
    - A figure that contradicts another (e.g. "no defect closed by a fix" beside "43 fixed") is a bug in `desktop/e2e/lib/loop-quality.mjs`,
-     `lib/selfheal-stats.mjs` or `admin/selfheal.js` (that one lives in the private repo `job-pilotto-site`: fix it there, a PR with a test; `~/job-pilotto-site/tools/site-run.sh <cmd>` runs commands in the joined tree): fix it with a test, like any other bug.
+     `lib/selfheal-stats.mjs` or `admin/selfheal.js` (that one lives in the private repo `jobadabra-web`: fix it there, a PR with a test; `~/jobadabra-web/tools/site-run.sh <cmd>` runs commands in the joined tree): fix it with a test, like any other bug.
    - A figure that is missing and would change a decision (severity accuracy, escapes per detector, time to verdict): propose adding it.
 
 What to look for:

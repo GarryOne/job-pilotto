@@ -1,4 +1,4 @@
-"""tools/ship.sh and tools/pr-body.sh in a repo that has none of the toolkit (20 Oct 2026: the private job-pilotto-site opened PRs with a bare `gh pr create`, so their
+"""tools/ship.sh and tools/pr-body.sh in a repo that has none of the toolkit (20 Oct 2026: the private jobadabra-web opened PRs with a bare `gh pr create`, so their
 descriptions skipped the layout the owner reads in 2-5 seconds). A private PR body must pass tools/pr-body-check.py, the check CI runs on the public repo's PRs.
 Run on a throwaway origin and clone with no tools/ folder, shipped with THIS checkout's ship.sh, and a fake `gh` (tests/fake_gh.py)."""
 import json

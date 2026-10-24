@@ -84,7 +84,7 @@ with a test in `desktop/test/app-scenarios.test.js`. The twin (docs/live-test.md
 
 ## Pool life cycle (stages of a pool row)
 - **Stages** (shown as the Stage chips on the lab page's Sites tab): New (recorded once) · Needs a fix (newest run short) · Working · Fixed (2 clean runs after the fix + a page case) · Daily watch · Archived.
-- New / Needs a fix / Working / Fixed are **derived** from runs and the fixes ledger (`admin/applying-stage.js` in the private repo `job-pilotto-site`); Daily watch and Archived are **data** on the row (`stage`, `stage_why` in `smoke-sites.json` uploads).
+- New / Needs a fix / Working / Fixed are **derived** from runs and the fixes ledger (`admin/applying-stage.js` in the private repo `jobadabra-web`); Daily watch and Archived are **data** on the row (`stage`, `stage_why` in `smoke-sites.json` uploads).
 - **Archived rows are never run** by lists, shares, `--all` or CI (only an explicit `--only` names one); nothing is deleted, the recording stays for history and offline debugging.
 - `node desktop/e2e/archive-pool-rows.mjs` lists rows that may be archived (fixed, working 3 clean runs, posting gone); `--write` archives them.
 

@@ -1,4 +1,4 @@
-// The morning's two ways in to a filled tab (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md; measured by the server proof, 17 Oct 2026: open p50 155 ms, input p50 79 ms, hand-off restore 5 of 5 in ~10 ms):
+// The morning's two ways in to a filled tab (private spec jobadabra-lab:docs/specs/2026-10-17-ready-to-send.md; measured by the server proof, 17 Oct 2026: open p50 155 ms, input p50 79 ms, hand-off restore 5 of 5 in ~10 ms):
 //  - the LIVE VIEW: a CDP screencast of the tab over a WebSocket, the person's mouse and keys coming back as CDP input. He solves a human check and presses Submit in it; nothing here presses anything on its own.
 //  - the HAND-OFF: what his own browser needs to open the same page filled: the address, the browser's storage (cookies, localStorage, sessionStorage) and a snapshot of the page's fields and file slots by identity.
 // Pure parts are exported for the tests; the page-facing ones take a Playwright page. Guard: desktop/test/ready-fill.test.js.

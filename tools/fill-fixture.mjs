@@ -120,7 +120,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const issue = bodyFile ? { number, body: fs.readFileSync(bodyFile, 'utf8'), comments: [] }
     : JSON.parse(execFileSync('gh', ['issue', 'view', number, '--json', 'number,title,body,comments', ...(option('--repo') ? ['--repo', option('--repo')] : [])], { encoding: 'utf8' }));
   const expect = Object.fromEntries(['picked', 'checked', 'value'].map((key) => [key, option(`--expect-${key}`)]).filter(([, v]) => v !== undefined));
-  // A private triage issue (job-pilotto-internal, --repo): its fields JSON, one fixture per field with a snapshot.
+  // A private triage issue (jobadabra-lab, --repo): its fields JSON, one fixture per field with a snapshot.
   const site = issue.title?.match(/^Fill failure: ([a-z0-9.-]+)/)?.[1] || '';
   const fromTriage = site ? fromFields(site, fieldsOfIssue(issue.body), { source: `issue #${number}`, answer: option('--answer') ?? null }) : [];
   if (site) {

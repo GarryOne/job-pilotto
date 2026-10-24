@@ -27,7 +27,7 @@ flowchart LR
 > **In the private repo `GarryOne/jobadabra-web` since 20 Oct 2026** (owner: the website, /admin and the jobs that feed it are not open source): `site.yml`, `site-next.yml`, `release-ready-runner.yml`,
 > `public-watch.yml` (hourly: starts the deploys when public files they bundle changed), `tests.yml`, `hosted-e2e.yml`, `ops-overview.yml`, `changelog-publish.yml`, `daily-digest.yml`, `e2e-intel.yml`,
 > and the Lab Job Search (`random-draw.yml`, `search-lab.yml`, `search-lab-heal.yml`). They run in this repo's tree with that repo's files laid over it (`tools/tree.sh`). Their rows live in that repo's README.
-> Read-only look from here: `~/job-pilotto-site/tools/site-run.sh node jobs/needs-fix-causes.mjs`. How the move works: [docs/rules/private-site.md](rules/private-site.md).
+> Read-only look from here: `~/jobadabra-web/tools/site-run.sh node jobs/needs-fix-causes.mjs`. How the move works: [docs/rules/private-site.md](rules/private-site.md).
 
 | Loop | Trigger | Does | May change | Output | ✋ Owner gate |
 |---|---|---|---|---|---|

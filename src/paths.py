@@ -239,7 +239,7 @@ def load_search_config(matching=True):
     matching=False: the words as the user wrote them, without the regions and AI place words the crawl adds (what a screen lists)."""
     from . import target_roles
     config = target_roles.with_derived(json.loads((CONFIG / 'search.json').read_text()))   # the one list of roles gives the engine's two keys
-    # The central scout (private repo job-pilotto-internal) judges feeds for everyone in engineering and IT, worldwide, not
+    # The central scout (private repo jobadabra-lab) judges feeds for everyone in engineering and IT, worldwide, not
     # by one user's example profile: a file named in JOB_PILOTTO_LOCATIONS_FILE replaces those parts of this config.
     override = os.getenv('JOB_PILOTTO_LOCATIONS_FILE')
     if override:

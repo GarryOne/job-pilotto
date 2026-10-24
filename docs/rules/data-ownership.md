@@ -51,8 +51,8 @@ Read before adding any stored field, file, setting or table. Linked from CLAUDE.
   (recording/transcribing, Apply with Claude, form filling, Google sign-in) or an instant answer runs locally. Always on never moves data.
 
 ## The employer index is product data, not user data
-The central scout (private repo `job-pilotto-internal`) publishes feeds + quality + last verified to our website (`GET /api/index`,
-`api/employers.js`; install token, capped per install a day, `shared/guard.js`; `INDEX_GATE=soft` in `workers/www/wrangler.toml` would reopen it; all in the private repo `job-pilotto-site`).
+The central scout (private repo `jobadabra-lab`) publishes feeds + quality + last verified to our website (`GET /api/index`,
+`api/employers.js`; install token, capped per install a day, `shared/guard.js`; `INDEX_GATE=soft` in `workers/www/wrangler.toml` would reopen it; all in the private repo `jobadabra-web`).
 Every run downloads it (`src/employer_index.py`, cache `data/employer_index.json`, about hourly; the scout publishes every 6 h) and merges it with
 the starter `config/sources.json`; a run crawls only feeds matching the user's `search.json` (`employer_index.relevant`). It never lives in a
 user's store, and nothing about a user is sent to get it.

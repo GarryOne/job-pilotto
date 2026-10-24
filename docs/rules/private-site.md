@@ -1,9 +1,9 @@
 # The website and /admin live in a private repo
 
-Owner, 19 Oct 2026: "leave open-source rather less than more … make it hard for someone to copy our product from the source code". Moved 20 Oct 2026 (private spec job-pilotto-internal:docs/specs/2026-10-19-site-private-repo.md).
+Owner, 19 Oct 2026: "leave open-source rather less than more … make it hard for someone to copy our product from the source code". Moved 20 Oct 2026 (private spec jobadabra-lab:docs/specs/2026-10-19-site-private-repo.md).
 
 ## What is where
-- **Private, `GarryOne/jobadabra-web`** (clone: `~/job-pilotto-site`): its folders sit at the top level by audience (21 Oct 2026): `web/` (public pages), `admin/`, `api/`, `shared/`, `workers/www` (the ONE Worker serving them; also `workers/hosted-runner`, `workers/ready-runner`), `db/migrations/`, `test/`, `media/`, `preview/`, and `jobs/` (the scheduled jobs that feed /admin: ops overview, changelog, daily digest, e2e-intel, hosted e2e, the Lab Job Search uploads) with their workflows. There is no `site/` folder.
+- **Private, `GarryOne/jobadabra-web`** (clone: `~/jobadabra-web`): its folders sit at the top level by audience (21 Oct 2026): `web/` (public pages), `admin/`, `api/`, `shared/`, `workers/www` (the ONE Worker serving them; also `workers/hosted-runner`, `workers/ready-runner`), `db/migrations/`, `test/`, `media/`, `preview/`, and `jobs/` (the scheduled jobs that feed /admin: ops overview, changelog, daily digest, e2e-intel, hosted e2e, the Lab Job Search uploads) with their workflows. There is no `site/` folder.
 - **Public, here**: the desktop app, extension, engine (`src/`), the Telegram bot Worker (`worker/`), the hosted image (`hosted/`), the tests of all of those, and **`docs/site-routes.json`**: the list of every route the app, extension and engine call, with a kind. The public tests `desktop/test/site-routes.test.js` (code calls only listed routes) and the site's `test/site-routes.test.js` (the Worker answers each) pair on it.
 - **The rule: private may read public, public never reads private.** The private repo works inside a tree of this repo with its own files laid over it (`tools/overlay.sh`, `tools/tree.sh` there).
 
@@ -18,7 +18,7 @@ Owner: "Stop the cross-repo reds: for a change that touches both repos, the site
 - **A new route the app calls**: the Worker route in the private repo first (it lands as "site ahead": told, not failed), then here: list it in `docs/site-routes.json` and call it (the public test fails until it is listed; the private test fails until the Worker answers it).
 - **A test that reads a `site/` file** uses `tests/site_private.py` (`@needs_site`) or `desktop/test/site-private.js` (`siteTest`): it is skipped here and runs in the private repo's CI (daily against the newest public main too).
 - **Shared tables** the public pool and eval tools need live here: `desktop/e2e/lib/platform.mjs`, `applying-status.mjs`, `desktop/lib/free-ai-models.js`, `free-ai-translate.js`, `desktop/test/fixtures/host-cases.json`. The site re-exports them.
-- **Reading the admin tools** from here (needs-fix-causes and friends): `~/job-pilotto-site/tools/site-run.sh node jobs/needs-fix-causes.mjs`.
+- **Reading the admin tools** from here (needs-fix-causes and friends): `~/jobadabra-web/tools/site-run.sh node jobs/needs-fix-causes.mjs`.
 - **The product media** (the site's screenshots and videos, owner 20 Oct 2026: marketing stays private): recorded there (`media`, `product-media.yml`) from this repo's app in demo mode; here only the app's hook `JOB_PILOTTO_DEMO_DIR` (`desktop/lib/demo.js`). A change to `desktop/renderer`, `desktop/demo` or `extension` re-records it there the next day.
-- **Editing the site**: in `~/job-pilotto-site` (its own worktrees and PRs). A public PR cannot start a workflow there; `public-watch.yml` there looks every 6 hours and starts a deploy when a public file the site bundles changed.
+- **Editing the site**: in `~/jobadabra-web` (its own worktrees and PRs). A public PR cannot start a workflow there; `public-watch.yml` there looks every 6 hours and starts a deploy when a public file the site bundles changed.
 - Everything pushed before 20 Oct 2026 stays in this repo's history and in forks.

@@ -1,4 +1,4 @@
-// Hosted Always on, the app's side (private spec job-pilotto-internal:docs/specs/2026-10-16-hosted-always-on.md §2, §4b): "Search for me every day" runs on our servers while the Mac is off.
+// Hosted Always on, the app's side (private spec jobadabra-lab:docs/specs/2026-10-16-hosted-always-on.md §2, §4b): "Search for me every day" runs on our servers while the Mac is off.
 // The app sets the schedule (with the e-mail), pushes the profile and search settings, pulls the matches that arrived (the inbox) into this Mac's own store, and exports or deletes
 // what we hold. The install's own key (the one Free AI uses) is the only credential. Settings: settings.hostedSearch. Guard: test/hosted-search.test.js.
 import fs from 'node:fs';

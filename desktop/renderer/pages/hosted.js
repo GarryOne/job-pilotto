@@ -1,4 +1,4 @@
-// Always on "on our servers" in the window (private spec job-pilotto-internal:docs/specs/2026-10-16-hosted-always-on.md §4b, §4d): the wizard's step 4 (switch ON, e-mail, a pre-checked product-news box, Skip / Turn on Always on)
+// Always on "on our servers" in the window (private spec jobadabra-lab:docs/specs/2026-10-16-hosted-always-on.md §4b, §4d): the wizard's step 4 (switch ON, e-mail, a pre-checked product-news box, Skip / Turn on Always on)
 // and the Settings card (ON by default until Skip; asks for the e-mail first when there is none; Turn off deletes; Download my data). One name everywhere: "Always on" (owner, 17 Oct 2026).
 // The words and states are renderer/hosted-words.js; the data calls are lib/hosted-search.js. Never "GitHub", "container" or dollars here. Guard: test/hosted-search.test.js, test/hosted-words.test.js.
 import {el, pill, tile} from '../components.js';

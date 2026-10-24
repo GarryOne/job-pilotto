@@ -36,8 +36,8 @@ for arg in "$@"; do
 done
 
 here="$(git rev-parse --show-toplevel)"
-# A repo without this toolkit (the private job-pilotto-site, 20 Oct 2026: its PRs had no layout, no tags, no watcher) is shipped with THIS checkout's tools: they act on the repo of the
-# current directory (origin, branch, gh) and the push checks are the small ship-private-checks.sh. `~/job-pilotto/tools/ship.sh --background --body=<file>` from a site worktree.
+# A repo without this toolkit (the private jobadabra-web, 20 Oct 2026: its PRs had no layout, no tags, no watcher) is shipped with THIS checkout's tools: they act on the repo of the
+# current directory (origin, branch, gh) and the push checks are the small ship-private-checks.sh. `~/jobadabra/tools/ship.sh --background --body=<file>` from a site worktree.
 tools="$here/tools"; external=""
 if [ ! -f "$tools/ship-pr.sh" ]; then tools="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; external=1; fi
 [ -n "$external" ] || git config core.hooksPath tools/githooks 2>/dev/null || true   # the commit-msg hook (trailer values) for every worktree of this repo; the setting is shared and relative

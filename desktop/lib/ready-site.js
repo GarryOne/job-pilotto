@@ -1,4 +1,4 @@
-// Ready to send, the app's calls to the site (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md): is this install the owner's, send tonight's batch, start it now, read the morning's rows, mark a job Done.
+// Ready to send, the app's calls to the site (private spec jobadabra-lab:docs/specs/2026-10-17-ready-to-send.md): is this install the owner's, send tonight's batch, start it now, read the morning's rows, mark a job Done.
 // The install's own key (the one Free AI uses) is the only credential; the site answers 404 or 401 to anyone but the owner, so the card is shown only when `owner` says yes. Guard: test/ready-site.test.js.
 import {FREE_BASE} from './ai-free.js';
 import {UNAVAILABLE, call as callWith, keyOf} from './hosted-search.js';

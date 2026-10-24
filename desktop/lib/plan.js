@@ -1,4 +1,4 @@
-// The Pro plan as the app sees it (private spec job-pilotto-internal:docs/specs/2026-10-16-pro-plan.md §1, §4): asks the site who is Pro and how much AI credit is left, keeps the last
+// The Pro plan as the app sees it (private spec jobadabra-lab:docs/specs/2026-10-16-pro-plan.md §1, §4): asks the site who is Pro and how much AI credit is left, keeps the last
 // answer (trusted for 14 days offline, then the app behaves as Free), and starts a one-time payment in the browser. The server is the source of truth; nothing here is a
 // secret and no card data ever touches the app. Mode "off" (the site's PRO_PLAN flag, or a build that is not a regular install) means nothing about Pro is shown.
 // Guards: test/plan.test.js.

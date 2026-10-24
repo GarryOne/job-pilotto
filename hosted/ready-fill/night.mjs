@@ -1,4 +1,4 @@
-// The night's run (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md): read the batch with the night token, start ONE browser with the night's copy of the extension and the stand-in app, fill each job in its own tab, one after the other,
+// The night's run (private spec jobadabra-lab:docs/specs/2026-10-17-ready-to-send.md): read the batch with the night token, start ONE browser with the night's copy of the extension and the stand-in app, fill each job in its own tab, one after the other,
 // post only counts to the Worker after each (it can answer "stop": the night's cost cap), and keep every filled tab open for the morning. Never presses Submit or an account button (extension-copy.mjs, no-submit.mjs).
 // Counts only leave this file: no field value, no address in a log. Guard: desktop/test/ready-fill.test.js; the fixture proof is hosted/ready-fill/proof.mjs.
 import fs from 'node:fs';

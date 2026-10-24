@@ -43,7 +43,7 @@ class ReplayOfflineWorkflow(unittest.TestCase):
 
 
     def test_the_mac_records_come_from_the_private_repo_with_a_read_only_token(self):
-        # owner, 14 Oct 2026: the encrypted recordings move to job-pilotto-internal; one fetch script for both replay workflows
+        # owner, 14 Oct 2026: the encrypted recordings move to jobadabra-lab; one fetch script for both replay workflows
         fetch = (ROOT / 'desktop' / 'e2e' / 'net-records-fetch.sh').read_text()
         self.assertIn('GarryOne/jobadabra-lab', fetch)
         self.assertIn('NET_RECORDS_READ_TOKEN', fetch)

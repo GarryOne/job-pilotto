@@ -127,7 +127,7 @@ class Learning(NoAI):
 
 
 class Seed(unittest.TestCase):
-    @needs_site   # the tool also writes the site's D1 migration (db/migrations), which lives in job-pilotto-site
+    @needs_site   # the tool also writes the site's D1 migration (db/migrations), which lives in jobadabra-web
     def test_the_seed_is_what_its_sources_give(self):
         run = subprocess.run([sys.executable, 'tools/meanings_seed.py', '--check'], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)

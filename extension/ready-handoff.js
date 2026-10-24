@@ -1,4 +1,4 @@
-// Ready to send's "Open in my browser" in the extension (private spec job-pilotto-internal:docs/specs/2026-10-17-ready-to-send.md, PR 5b; owner 18 Oct 2026: carry the
+// Ready to send's "Open in my browser" in the extension (private spec jobadabra-lab:docs/specs/2026-10-17-ready-to-send.md, PR 5b; owner 18 Oct 2026: carry the
 // cookies, the normal fill takes over): a tab the app opened for a job asks the app once, while it first loads, for the night's hand-off
 // (desktop/lib/ready-handoff.js). With one, the page's cookies are set, the tab loads the page the night ended on (keeping its fill mark, so it stays
 // the app's session), and when that page is loaded its storage is put back and the page marked as the night's; then the fill types the night's answers,

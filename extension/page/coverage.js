@@ -3,7 +3,7 @@
 // say what it needs whatever its shape. A marked question no read field claims is a reading miss: it is listed for the person
 // and reported, so a new layout teaches the product on its first visit instead of passing silently (Colonist on Ashby, 5 Oct
 // 2026: two required radio groups were neither filled nor listed). Read only: it never changes the page. Loaded by the panel,
-// the fill and the form lab (job-pilotto-internal lab/form-lab.mjs), and by the tests (module.exports).
+// the fill and the form lab (jobadabra-lab lab/form-lab.mjs), and by the tests (module.exports).
 (() => {
   const clean = text => window.__jobPilottoRequired.clean(text);
   const norm = text => clean(text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();

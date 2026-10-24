@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The fast push checks for a repo shipped with this checkout's tools but without its own toolkit (the private job-pilotto-site): commit subjects. Its CI runs the suites.
+# The fast push checks for a repo shipped with this checkout's tools but without its own toolkit (the private jobadabra-web): commit subjects. Its CI runs the suites.
 # Usage: ship-private-checks.sh [base-ref]   (run inside that repo's worktree; default base origin/main)
 set -uo pipefail
 base="${1:-origin/main}"

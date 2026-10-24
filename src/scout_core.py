@@ -133,7 +133,7 @@ def _get_text(url):
         return response.read().decode('utf-8', 'replace')
 
 
-# The central scout (python -m src scout --publish-index, job-pilotto-internal) keeps the full lists it publishes; an install ignores the copies
+# The central scout (python -m src scout --publish-index, jobadabra-lab) keeps the full lists it publishes; an install ignores the copies
 # of the lists the app shipped before 6 Oct 2026 (src/legacy_lists.py): those sources reach it through the central index now.
 CENTRAL = False
 # Why an employer has no readable job feed, as the fixed words installs and the central scout share (20 Oct 2026) and how many days each rests

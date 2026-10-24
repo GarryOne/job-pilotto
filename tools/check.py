@@ -10,7 +10,7 @@ import time
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-AREAS = ('python', 'worker', 'site', 'desktop') if (ROOT / 'admin').is_dir() else ('python', 'worker', 'desktop')   # the website is in the private repo job-pilotto-site: its CI lays web/, admin/, api/, test/ … over this tree
+AREAS = ('python', 'worker', 'site', 'desktop') if (ROOT / 'admin').is_dir() else ('python', 'worker', 'desktop')   # the website is in the private repo jobadabra-web: its CI lays web/, admin/, api/, test/ … over this tree
 
 
 def node_supported(version):
@@ -56,7 +56,7 @@ def commands(area, fast, node, npm, picked='all', app_only=False):
         if os.environ.get('JOB_PILOTTO_PY_SERIAL'):      # the old single-process run, to compare with the shards
             return [(ROOT, [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-q'])]
         return [(ROOT, [sys.executable, 'tools/py-shards.py', *(['--app-only'] if app_only else [])])]
-    if area == 'site':   # the website's tests sit in test/ at the top level of the joined tree (job-pilotto-site, 21 Oct 2026)
+    if area == 'site':   # the website's tests sit in test/ at the top level of the joined tree (jobadabra-web, 21 Oct 2026)
         return [(ROOT, [node, '--test', *(picked if picked != 'all' else ['test/**/*.test.js'])])]
     folder = ROOT / area
     if picked != 'all':

@@ -1,6 +1,6 @@
 // Where the persona search tapes (src/search_tape.py) are kept between runs, for the Lab Job Search's CI replay (owner, 18 Oct 2026; PR 2). A tape holds third parties' pages, so
 // this public repo keeps none: each candidate's folder is packed, encrypted the way the pool's network records are (desktop/e2e/records-publish.mjs: AES key wrapped with
-// desktop/e2e/net-record.pub.pem, only the owner's Keychain key and the NET_RECORD_KEY secret open it) and put on the release `search-tapes` of the PRIVATE repo job-pilotto-internal
+// desktop/e2e/net-record.pub.pem, only the owner's Keychain key and the NET_RECORD_KEY secret open it) and put on the release `search-tapes` of the PRIVATE repo jobadabra-lab
 // as a new pair of assets beside the older ones; a fetch takes the newest pair of a candidate. Never --clobber: an older tape stays until the owner deletes it.
 //   node tools/persona-search/tape-store.mjs publish <candidate> <tape folder>     (the Mac: gh login; the folder holds web.jsonl, ai.jsonl, bodies/, draft.json)
 //   node tools/persona-search/tape-store.mjs publish-debug <candidate> <tape folder>   (a failed heal keeps its new tape on the release `search-tapes-debug`, newest 5 only; fetch-debug brings the newest of a candidate back for an offline replay)

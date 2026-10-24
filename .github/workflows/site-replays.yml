@@ -179,7 +179,7 @@ jobs:
           NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
-          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}   # read-only, job-pilotto-internal only (the Mac's records)
+          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}   # read-only, jobadabra-lab only (the Mac's records)
         run: bash net-records-fetch.sh "$GITHUB_WORKSPACE/records"
       - name: Replay each row offline with this build
         working-directory: desktop/e2e
@@ -289,7 +289,7 @@ jobs:
           NET_RECORDS_BUNDLES: ${{ runner.temp }}/bundles   # the run's one download of the release, still encrypted (net-records-fetch.sh)
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
-          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}   # the Mac's records on job-pilotto-internal (net-records-fetch.sh)
+          NET_RECORDS_READ_TOKEN: ${{ steps.records_app.outputs.token || secrets.NET_RECORDS_READ_TOKEN }}   # the Mac's records on jobadabra-lab (net-records-fetch.sh)
           WORSE: ${{ needs.prejudge.outputs.worse }}
         run: |
           echo "retry: $(echo "$WORSE" | tr '\n' ',')"

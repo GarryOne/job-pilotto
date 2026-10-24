@@ -1,4 +1,4 @@
-# The engine image for the one-off hosted Always on cost probe (private spec job-pilotto-internal:docs/specs/2026-10-16-hosted-always-on.md §3): public engine code, no secrets, fixture config.
+# The engine image for the one-off hosted Always on cost probe (private spec jobadabra-lab:docs/specs/2026-10-16-hosted-always-on.md §3): public engine code, no secrets, fixture config.
 FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends time && rm -rf /var/lib/apt/lists/*
 WORKDIR /engine
