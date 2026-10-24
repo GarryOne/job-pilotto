@@ -6,6 +6,17 @@ set -euo pipefail
 tag=${1:?usage: tools/release-checks.sh <tag> <sha>}; ref=${2:?usage: tools/release-checks.sh <tag> <sha>}
 repo=${GITHUB_REPOSITORY:-GarryOne/jobadabra}
 
+# A beta cut right after a push to main meets main's own build.yml still running on the same commit (beta 17, 24 Oct 2026: "build.yml on b5c13d0: none", the run was 35 min in):
+# wait for it, bounded, and decide on its result; only red, cancelled (see below) or a run still going after the wait stop the release.
+wait_max=${RELEASE_CI_WAIT:-3600}; poll=${RELEASE_CI_POLL:-30}; waited=0; said=-60
+while :; do
+  open=$(gh run list -R "$repo" --workflow build.yml --commit "$ref" --json status --jq '[.[] | select(.status != "completed")] | length' 2>/dev/null) || open=0
+  case "$open" in ''|*[!0-9]*) open=0;; esac
+  [ "$open" -gt 0 ] || break
+  if [ "$waited" -ge "$wait_max" ]; then echo "build.yml on ${ref:0:7} is still running after ${waited} s: not waiting any longer."; break; fi
+  if [ $((waited - said)) -ge 60 ]; then echo "build.yml on ${ref:0:7} is still running; waiting (${waited} s of ${wait_max} s)"; said=$waited; fi
+  sleep "$poll"; waited=$((waited + poll))
+done
 verdict=$(gh run list -R "$repo" --workflow build.yml --commit "$ref" --status completed --json conclusion | python3 "$(dirname "${BASH_SOURCE[0]}")/e2e_gate.py" ci)
 # A push to main cancels the older commit's build.yml run (15 Oct 2026): the newest commit's run decides, so a cancelled run is green when a NEWER commit of main passed.
 if [ "$verdict" = superseded ]; then
