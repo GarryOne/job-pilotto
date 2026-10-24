@@ -48,7 +48,7 @@ def phase(name, out=print):
         out(f'Scout: {name} took {time.monotonic() - began:.0f} s')
 
 
-def publish_deadline(started, job_s=20 * 60, reserve_s=3 * 60, wall=time.time, job_started_at=None):
+def publish_deadline(started, job_s=30 * 60, reserve_s=3 * 60, wall=time.time, job_started_at=None):
     """Monotonic time after which no new feed check starts, so the index is published before the job's own limit (reserve: upload + cost report).
     The limit counts from the JOB's start (JOB_STARTED_AT, epoch seconds, set by the workflow), not the process's: 22 Oct 2026 the 23 min of the step before
     it were not counted and the deadline fell after the cancel."""

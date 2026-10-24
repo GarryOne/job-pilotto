@@ -34,7 +34,7 @@ env:
 jobs:
   scout:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20   # owner, 23 Oct 2026: 15-20 minutes; the feeds are verified in slices (src/scout_carry.py)
+    timeout-minutes: 30   # owner, 24 Oct 2026: 30 minutes so a run reaches more of its feed slice (20 on 23 Oct); the feeds are verified in slices (src/scout_carry.py)
     env:
       PYTHONUNBUFFERED: '1'   # 22 Oct 2026: a cancelled run lost every line the scout had printed but not flushed ("no log line for 37 min")
     steps:
