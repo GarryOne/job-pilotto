@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {oneFillPerTab, stillOnPage} from '../../extension/one-fill.js';
+import {oneFillPerTab, retireFill, stillOnPage} from '../../extension/one-fill.js';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -25,6 +25,25 @@ test('a new document in the same tab gets its own fill while the old page still 
   const form = oneFillPerTab(9, 'https://x.test/signup-application', fill('form'));
   assert.deepEqual(await Promise.all([signup, form]), ['signup', 'form']);
   assert.deepEqual(ran, ['signup', 'form'], 'both fills ran; the form was not handed to the sign-up fill');
+});
+
+test('a reload of the same URL retires the old fill: the new document gets its own, a double ask on it still joins', async () => {
+  let starts = 0, joins = 0;
+  const slow = () => new Promise(resolve => { starts++; setTimeout(() => resolve(starts), 60); });
+  const old = oneFillPerTab(11, 'https://x.test/form', slow, {onJoin: () => joins++});
+  await wait(10);
+  retireFill(11);   // the tab committed a new document (location.reload())
+  const fresh = oneFillPerTab(11, 'https://x.test/form', slow, {onJoin: () => joins++});
+  const double = oneFillPerTab(11, 'https://x.test/form', slow, {onJoin: () => joins++});
+  await wait(0);
+  assert.equal(starts, 2, 'the reloaded page started its own fill'); assert.equal(joins, 1, 'only the double ask on the new document joined');
+  await Promise.all([old, fresh, double]);
+  await oneFillPerTab(11, 'https://x.test/form', slow); assert.equal(starts, 3, 'the old fill ending did not remove the new fill\'s entry early or block the next ask');
+});
+
+test('the class: the extension retires a tab\'s fill on every committed top-frame navigation', () => {
+  const bg = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
+  assert.match(bg, /onCommitted\.addListener\(async details => \{\s*if \(details\.frameId !== 0\) return;\s*retireFill\(details\.tabId\)/);
 });
 
 test('another tab and a failed fill do not block', async () => {
