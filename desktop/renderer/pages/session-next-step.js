@@ -2,6 +2,7 @@
 // as a pure move (13 Oct 2026) so both files stay one concern under 500 lines. The session list and its shared state stay in sessions.js and are imported from it (a cycle, as
 // session-log.js already has: nothing here runs at load). Guards read this file's source: desktop/test/claude-offer, claude-help, claude-safety-net, session-state,
 // session-optional, resume-secondary and terminals tests.
+import {ai} from '../ai-name.js';
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
@@ -144,13 +145,13 @@ export function renderNextStep(item) {
     : review ? 'Review the filled application'
     : asking ? ask || (item.stage === 'account' ? 'Account step needs your input' : 'Application needs your input')
     : open ? 'Complete the application in Chrome'
-    : running ? 'Claude is filling the application' : item.status === 'failed' ? 'The session stopped' : 'The session ended';
+    : running ? ai('{AI} is filling the application') : item.status === 'failed' ? 'The session stopped' : 'The session ended';
   // Its state, after the title: finished (when), waiting (since when) or working (for how long).
   const since = item.needsYouSince || item.endedAt || item.startedAt;
   const state = $('ss-next-state');
   state.textContent = submitted ? `· ended at ${hhmmOf(since)}`
     : stuck ? (item.stuck === 'account' ? accountProgress(reviewStates.get(item.id)) : INFORM_STUCK.includes(item.stuck) ? '' : '· nothing filled yet')
-    : review ? (item.kind === 'form' || item.inChrome ? `· form opened at ${hhmmOf(since)}` : `· Claude finished at ${hhmmOf(since)}`) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
+    : review ? (item.kind === 'form' || item.inChrome ? `· form opened at ${hhmmOf(since)}` : ai(`· {AI} finished at ${hhmmOf(since)}`)) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : ai('· {AI} closed with the app'))
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   const stage = sessionStage(item, review);
   $('ss-stage').replaceChildren(...(stage ? [pill(stage.text, stage.tone, {dot: true})] : []));
@@ -177,7 +178,7 @@ export function renderNextStep(item) {
       // Claude listed what it needs: its first sentence for context, then each thing as a line, then where to answer.
       // Why Claude stopped stays in sight here (owner, 12 Oct 2026: it was folded away); each thing it needs is a row of the card below, with its answer box.
       ? [...(said.length ? richText(said.join('\n')) : []), ...(isLive(item) ? [answerHint()] : [])]
-      : [...(said.length ? richText(said.join('\n')) : [el('p', 'rich-p', 'Claude is waiting for you.')]), ...(isLive(item) ? [answerHint()] : [])])
+      : [...(said.length ? richText(said.join('\n')) : [el('p', 'rich-p', ai('{AI} is waiting for you.'))]), ...(isLive(item) ? [answerHint()] : [])])
     : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})]));
   const full = $('ss-full');
   full.replaceChildren(...(review && item.question ? richText(item.question) : []));
@@ -187,7 +188,7 @@ export function renderNextStep(item) {
   const record = accountRecordLine(item);   // "Account created on X · terms accepted: '…' · code from your email" (session-state.js)
   if (record) $('ss-question').append(el('p', 'muted small', record));
   const toggle = $('ss-full-toggle');
-  const label = () => { toggle.textContent = full.hidden ? 'Claude\'s full report ▾' : 'Claude\'s full report ▴'; };
+  const label = () => { toggle.textContent = ai(full.hidden ? '{AI}\'s full report ▾' : '{AI}\'s full report ▴'); };
   show(toggle, !!(review && item.question));
   label();
   toggle.onclick = () => { full.hidden = !full.hidden; label(); };
@@ -310,7 +311,7 @@ export function renderNextStep(item) {
   const empty = gone ? [] : emptyFields(item, needs);   // a closed tab has no empty fields to open
   show($('ss-needs-card'), needs.length + empty.length > 0 && !gone);   // a closed tab's rows are stale: Reopen form asks what to keep
   $('ss-needs-title').textContent = 'Needs your attention';
-  $('ss-needs-sub').textContent = review ? 'Check these items before submitting.' : asking ? 'What Claude needs from you to carry on.' : 'Complete these items in Chrome.';
+  $('ss-needs-sub').textContent = review ? 'Check these items before submitting.' : asking ? ai('What {AI} needs from you to carry on.') : 'Complete these items in Chrome.';
   $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))), ...empty.map(label => emptyRow(label, item)));
   watchAgreements(item, needs.filter(need => need.kind === 'agree' || need.kind === 'ask'));
   applyFormStates(item);

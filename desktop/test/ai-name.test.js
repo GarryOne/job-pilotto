@@ -9,6 +9,7 @@ import {fileURLToPath} from 'node:url';
 import * as windowNames from '../renderer/ai-name.js';
 import * as appNames from '../lib/ai/names.js';
 import {TIERS} from '../lib/ai/models.js';
+import {ENGINES} from '../lib/ai/index.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '..');
 
@@ -31,10 +32,46 @@ test('one name and one model per engine, in the window and the main process, mat
   assert.equal(appNames.nameOfClient({}), 'Claude');
 });
 
+// Every engine the chooser offers (the four adapters + Free AI) has a name and models in both files, and none falls back to "Claude" (owner, 24 Oct 2026).
+test('every chooser engine, Free AI included, has a name and model names; an unknown engine reads "AI", never "Claude"', () => {
+  for (const engine of [...Object.keys(ENGINES), 'free']) {
+    assert.ok(windowNames.NAMES[engine], `renderer/ai-name.js NAMES.${engine}`);
+    assert.ok(appNames.NAMES[engine], `lib/ai/names.js NAMES.${engine}`);
+  }
+  assert.equal(windowNames.ai('{AI} is filling the application', 'free'), 'Free AI is filling the application');
+  assert.equal(windowNames.ai('{AI:big}', 'free'), 'Free AI');
+  assert.equal(windowNames.ai('{AI}', 'unknown'), 'AI');
+  assert.equal(appNames.nameOfClient({engine: 'nope'}), 'AI');
+  const store = settings => ({settings: () => settings, secret: () => ''});
+  assert.equal(appNames.aiText(store({aiFree: true}), '{AI} answered'), 'Free AI answered');
+  assert.equal(appNames.aiText(store({aiTrial: true}), '{AI} answered'), 'Free AI answered');
+  assert.equal(appNames.aiText(store({aiFree: true, aiEngine: 'cli'}), '{AI}'), 'Claude', 'a later pick of another engine wins over a stale Free flag');
+  assert.equal(windowNames.engineNamed('api', {aiFree: true}), 'free');
+  assert.equal(windowNames.engineNamed(undefined, {aiTrial: true}), 'free');
+  assert.equal(windowNames.engineNamed('codex', {aiFree: true}), 'codex');
+  assert.equal(appNames.nameOfClient({engine: 'api', sdk: {apiKey: 'JPF1.abc.def'}}), 'Free AI');
+  assert.equal(appNames.nameOfClient({engine: 'api', sdk: {apiKey: 'sk-ant-1'}}), 'Claude');
+});
+
+// The extension's panel and popup texts have no engine to name: they say "AI". Generic "Claude" strings there may only shrink (decision logs and
+// Claude-only takeover texts: panel-claude.js).
+const ALLOWED_EXT = {'extension/panel-claude.js': 6, 'extension/flow.js': 7, 'extension/fill-flow.js': 2, 'extension/messages-panel.js': 2, 'extension/background.js': 1, 'extension/visit.js': 1};
+test('no new hard-coded generic "Claude" in the extension (the panel, popup and progress lines say "AI")', () => {
+  const dir = path.join(root, '..', 'extension'), found = {};
+  for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.js'))) {
+    for (const line of fs.readFileSync(path.join(dir, f), 'utf8').split('\n')) {
+      if (/^\s*(\/\/|\*)/.test(line)) continue;
+      for (const m of line.replace(/\/\/ .*$/, '').matchAll(/(['"`])((?:(?!\1).)*\bClaude\b(?:(?!\1).)*)\1/g)) if (!SPECIFIC.test(m[2])) found[`extension/${f}`] = (found[`extension/${f}`] || 0) + 1;
+    }
+  }
+  const over = Object.entries(found).filter(([file, n]) => n > (ALLOWED_EXT[file] || 0)).map(([file, n]) => `${file}: ${n} (allowed ${ALLOWED_EXT[file] || 0})`);
+  assert.deepEqual(over, []);
+});
+
 // Files allowed to say "Claude" in a string, and how many times: Claude-only features. May only shrink; a new file or a higher count fails.
 const ALLOWED = {
-  'renderer/pages/sessions.js': 3, 'renderer/pages/session-next-step.js': 9, 'renderer/pages/activity-visits.js': 9, 'lib/ai/names.js': 8, 'renderer/ai-name.js': 7,
-  'renderer/index.html': 3, 'lib/quit-dialog.js': 4, 'renderer/pages/session-log.js': 3, 'renderer/pages/jobs-render.js': 3, 'lib/session-runs.js': 3,
+  'renderer/pages/sessions.js': 3, 'renderer/pages/session-next-step.js': 5, 'renderer/pages/activity-visits.js': 9, 'lib/ai/names.js': 8, 'renderer/ai-name.js': 7,
+  'renderer/index.html': 3, 'lib/quit-dialog.js': 4,  'renderer/pages/jobs-render.js': 3, 'lib/session-runs.js': 3,
   'renderer/pages/session-needs.js': 2, 'renderer/ai-engine-view.js': 2, 'lib/terminals.js': 2, 'lib/session-flow.js': 2,
   'renderer/pages/session-actions.js': 1, 'renderer/pages/claude-prereqs.js': 1, 'lib/transcript.js': 1, 'lib/session-stats.js': 1, 'lib/run-result.js': 1,
   'lib/claude-session.js': 1, 'lib/apply-handlers.js': 1, 'lib/ladder/rung5-takeover.js': 2, 'lib/ladder/rung5-takeover-teach.js': 1, 'renderer/claude-offer.js': 6, 'lib/app-reminders.js': 1, 'lib/ai/claude-code-cli.js': 1,

@@ -110,9 +110,9 @@
     if (!verify.hidden) { stoppedCard(false); $('.verify .v-title').textContent = needsYou === '1' ? 'Your action is needed' : needsYou; }   // the AI's own words for what the page waits on
     const claude = pageMark ? '' : moved ? 'This application continues in another tab.'   // an older tab of the session: it no longer reports
       : session?.kind === 'form' ? ''   // the Apply button's session: the extension fills it, there is no Claude to name
-      : session?.live && session.status === 'running' ? `Claude is filling this form · ${session.note || 'working'}`
-      : session?.live && session.status === 'input' ? 'Claude is waiting for you in Jobadabra.'
-      : session?.status === 'done' ? 'Claude filled this form. Review it, then submit it yourself.' : '';
+      : session?.live && session.status === 'running' ? `AI is filling this form · ${session.note || 'working'}`
+      : session?.live && session.status === 'input' ? 'AI is waiting for you in Jobadabra.'
+      : session?.status === 'done' ? 'AI filled this form. Review it, then submit it yourself.' : '';
     $('.claude').hidden = !claude;
     $('.claude span').textContent = claude;
     // progress
