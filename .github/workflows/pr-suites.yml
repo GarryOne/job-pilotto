@@ -1,0 +1,57 @@
+name: CI · E2E suites for a PR (report only)
+# The e2e suites a pull request points at (its UI text, its suite or harness files), started on the PR's own branch through e2e.yml, Linux suites only, at most 4 (owner's yes, 24 Oct 2026:
+# report only for 2 weeks, then it can become required). It does not wait: e2e.yml's run appears under Actions as "E2E Mac + Linux · <suites> · <branch>". A dispatched run is not a
+# pull_request run, so "All checks passed" (tools/all-checks-green.sh) does not wait for it. Why: 8 of ~10 e2e fixes in beta runs 5-11 were tests lagging the app, found a night late.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'desktop/renderer/**'
+      - 'desktop/lib/**'
+      - 'desktop/main.js'
+      - 'desktop/e2e/suites/**'
+      - 'desktop/e2e/lib/**'
+      - 'extension/**'
+      - '.github/workflows/pr-suites.yml'
+
+permissions:
+  contents: read
+  actions: write   # start e2e.yml on the PR's branch
+
+concurrency:
+  group: pr-suites-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  start:
+    name: Start the suites this PR points at
+    # A fork has no secrets: nothing to run there.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install what the plan loads
+        run: |
+          (cd desktop/e2e && npm ci)
+          (cd desktop && npm ci --omit=dev --ignore-scripts)
+      - name: Plan
+        id: plan
+        run: |
+          set -o pipefail   # a program piped into tee keeps its exit code (tests/test_workflow_pipefail.py)
+          git fetch -q origin main
+          node desktop/e2e/pr-suites.mjs --base origin/main --plan | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Start them
+        if: steps.plan.outputs.suites != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUITES: ${{ steps.plan.outputs.suites }}
+        run: |
+          gh workflow run e2e.yml --ref "${{ github.head_ref }}" -f suite="$SUITES"
+          echo "Started e2e.yml on \`${{ github.head_ref }}\`: $SUITES. Left to the gate: ${{ steps.plan.outputs.left || 'none' }}. See https://github.com/${{ github.repository }}/actions/workflows/e2e.yml" | tee -a "$GITHUB_STEP_SUMMARY"
