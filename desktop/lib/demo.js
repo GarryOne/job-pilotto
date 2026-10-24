@@ -68,6 +68,11 @@ export const guard = handle => (name, listener) => handle(name, BLOCKED.includes
 // must run here, on the script (lib/demo-search.js), and send nothing anywhere. Every handler asks this through main.js `cloud()`.
 export const cloudRuns = (settings, demo) => !demo && !!settings?.cloud?.repo;
 
+// Which demo sessions' forms count as open in Chrome (the formsOpen check): those with a form state in review.json. No extension reports in the demo, so
+// the Applying card said "Checking Chrome for this application…" and then "Chrome isn't reporting" on every demo screen (owner, 24 Oct 2026: "Let it
+// show a more real/relevant status as form opened"). Guard: desktop/test/demo-forms-open.test.js.
+export const demoFormsOpen = states => ({known: true, ids: (Array.isArray(states) ? states : []).map(state => String(state.id)), unsure: []});
+
 // Python jobs in demo mode: only the ones that read the demo folder (the Strategy page, a job's posting).
 const LOCAL = ['src.desktop strategy', 'src.desktop posting'];
 export const pipelineAllowed = args => LOCAL.some(prefix => args.join(' ').startsWith(prefix));

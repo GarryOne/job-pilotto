@@ -32,7 +32,7 @@ import {sharedCheck} from './shared-check.js';
 import {withAccounts, withCompanies, withoutHost} from './site-accounts.js';
 import {isTwin} from './twin.js';
 import {OUTCOME_STAGES as BOARD_STAGES} from '../renderer/jobs-board-rules.js';
-import {demoPath} from './demo.js';
+import {demoFormsOpen, demoPath} from './demo.js';
 
 export const extensionGate = installedGate;   // what main.js hands to every handler that opens a Chrome form
 export function registerApplyHandlers(ctx) {
@@ -232,6 +232,7 @@ export function registerApplyHandlers(ctx) {
   // extension has not checked in lately: then nothing can be said about a closed tab, so the page says nothing.
   let lastFormsOpen = '';
   ipcMain.handle('formsOpen', async () => {
+    if (DEMO) return demoFormsOpen(JSON.parse(fs.readFileSync(demoPath(here, 'review.json'), 'utf8')));   // the demo's forms, as Chrome would report them (lib/demo.js)
     const seen = server.extensionSeen(), known = !!seen && Date.now() - seen.at < 90 * 1000;
     if (!known) return {known, ids: []};
     // A session whose own tab we know is open while that tab exists; for the others, a tab that looks like its form says open, nothing says closed.
