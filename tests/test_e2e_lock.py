@@ -35,23 +35,24 @@ while i < len(args):
 refs, commits, runs = load('refs.json'), load('commits.json'), load('runs.json')
 m = re.match(r'repos/[^/]+/[^/]+/(.*)', endpoint); path = m.group(1)
 if method == 'POST' and path == 'git/commits':
-    sha = 'c%d' % (len(commits) + 1); commits[sha] = fields['message']; save('commits.json', commits); print(sha)
+    sha = '%040x' % (len(commits) + 1); commits[sha] = fields['message']; save('commits.json', commits); print(sha)
 elif method == 'POST' and path == 'git/refs':
     name = fields['ref'].replace('refs/', '', 1)
+    if os.environ.get('FAKE_POST_FAIL'): print('{"message":"Resource not accessible by integration","status":"403"}'); sys.exit(1)
     if name in refs: sys.exit(1)
     refs[name] = fields['sha']; save('refs.json', refs)
 elif method == 'DELETE' and path.startswith('git/refs/'):
     refs.pop(path[len('git/refs/'):], None); save('refs.json', refs)
 elif path.startswith('git/ref/'):
     name = path[len('git/ref/'):]
-    if name not in refs: sys.exit(1)
+    if name not in refs: print('{"message":"Not Found","status":"404"}'); sys.exit(1)
     print(refs[name])
 elif path.startswith('git/commits/'):
     sha = path[len('git/commits/'):]
     print('tree1' if jq == '.tree.sha' else commits.get(sha, ''))
 elif path.startswith('actions/runs/'):
     rid = path[len('actions/runs/'):]
-    if rid not in runs: sys.exit(1)
+    if rid not in runs: print('{"message":"Not Found","status":"404"}'); sys.exit(1)
     print(runs[rid])
 else:
     sys.exit(2)
@@ -68,8 +69,8 @@ class E2eLockTest(unittest.TestCase):
         self.env = {**os.environ, 'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH': str(self.state), 'GITHUB_REPOSITORY': 'o/r',
                     'GITHUB_SHA': 'abc', 'E2E_LOCK_POLL': '1', 'E2E_LOCK_MAX': '3'}
 
-    def run_lock(self, cmd, run, job='test-mac', key='apply'):
-        return subprocess.run(['bash', str(LOCK), cmd, key], env={**self.env, 'GITHUB_RUN_ID': run, 'GITHUB_JOB': job}, capture_output=True, text=True, timeout=30)
+    def run_lock(self, cmd, run, job='test-mac', key='apply', **env):
+        return subprocess.run(['bash', str(LOCK), cmd, key], env={**self.env, **env, 'GITHUB_RUN_ID': run, 'GITHUB_JOB': job}, capture_output=True, text=True, timeout=30)
 
     def set_runs(self, runs): (self.state / 'runs.json').write_text(json.dumps(runs))
 
@@ -96,6 +97,21 @@ class E2eLockTest(unittest.TestCase):
 
     def test_a_lock_of_a_finished_run_is_taken_over(self):
         self.set_runs({'1': 'completed', '2': 'in_progress'})
+        self.run_lock('acquire', '1')
+        taken = self.run_lock('acquire', '2')
+        self.assertEqual(taken.returncode, 0, taken.stdout + taken.stderr)
+        self.assertIn('taking it over', taken.stdout)
+
+    def test_a_lock_that_cannot_be_created_fails_with_the_reason_not_a_wait(self):
+        # beta 16 (24 Oct 2026): creating the ref failed on the runner, gh's 404 body was read as "the holder", and 8 jobs "waited" for nobody for 5 minutes
+        self.set_runs({'2': 'in_progress'})
+        failed = self.run_lock('acquire', '2', **{'FAKE_POST_FAIL': '1'})
+        self.assertEqual(failed.returncode, 1)
+        self.assertIn('Resource not accessible by integration', failed.stderr)
+        self.assertNotIn('waiting', failed.stdout)
+
+    def test_a_holder_whose_run_is_gone_is_taken_over(self):
+        self.set_runs({'2': 'in_progress'})   # run 1 does not exist (404)
         self.run_lock('acquire', '1')
         taken = self.run_lock('acquire', '2')
         self.assertEqual(taken.returncode, 0, taken.stdout + taken.stderr)
