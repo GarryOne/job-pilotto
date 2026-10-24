@@ -263,6 +263,7 @@
   "suite-done.test.mjs",
   "suite-retry-room.test.mjs",
   "suite-shards.test.mjs",
+  "suites-report-every-red-step.test.mjs",
   "telegram-fake.test.mjs",
   "telegram-html.test.mjs",
   "test-accounts.test.mjs",
