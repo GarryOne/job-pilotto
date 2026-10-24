@@ -58,6 +58,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
   skill **ui-look-and-feel**; `desktop/` changes: skill **desktop-change**.
 - **Every lesson lands in its strongest form** (a failing test, a gate, a skill step, memory, a spec checklist; a note is the weakest).
   Before saying done: what did this teach, and where does it live? Detail: [docs/rules/knowledge.md](docs/rules/knowledge.md).
+- **A beta that cannot go green is cancelled, not waited behind** (owner, 24 Oct 2026): when a by-hand beta has a red job that is not a flake to re-run (a build that failed, a red suite), or main has moved on with the fixes, `gh run cancel` it and dispatch the fresh one at once: beta runs share one queue (`desktop-release`), so the old one only delays the new.
 - **Local tests never wait for our own clock** (owner, 18 Oct 2026): no waiting for a schedule, a fill time, "tomorrow" or a daily limit of our own site; trigger it by hand (a "now" button, `gh workflow run`) or lift our own limit for the test. Only live third-party sites keep their limits.
 - **No subagents** unless the owner asks: work inline. **One issue per session**; new splittable work goes to a hand-off.
 

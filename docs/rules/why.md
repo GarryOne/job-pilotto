@@ -112,3 +112,7 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
 ## Cross-repo reds (21 Oct 2026)
 - 75 red PR checks in two days; most were a public/private pair waiting on each other (site#18, #21 ×3, #22, #23: a route or feed type public listed before the Worker had it, or the site had before public listed it), two were a missing "[xx]" title tag (site#18, #19). Real catches stayed red (#1628/#1629 import cycle, #1631, #1638).
 - Rule: the site half lands first; contract tests are one way (`assert_site_accepts` / `assertSiteAccepts`); `tools/ship.sh` adds the tag to an open PR too and the "PR description laid out" step names the fix. Detail: docs/rules/private-site.md.
+
+## A dead beta holds the queue (24 Oct 2026)
+- Beta 13 had a red Build · Mac (GitHub's attestation upload) and lacked two fixes merged after it started; beta 14 sat `pending` behind it for the rest of its 45 minutes. Owner: "if a run is already failed, what's the point to wait in the queue for the new one?"
+- Rule: cancel the run that cannot go green, then dispatch (CLAUDE.md working rules); a one-off flake in a run that is otherwise fine is re-run once instead.
