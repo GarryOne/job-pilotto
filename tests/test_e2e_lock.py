@@ -38,7 +38,9 @@ if method == 'POST' and path == 'git/commits':
     sha = '%040x' % (len(commits) + 1); commits[sha] = fields['message']; save('commits.json', commits); print(sha)
 elif method == 'POST' and path == 'git/refs':
     name = fields['ref'].replace('refs/', '', 1)
+    if os.environ.get('FAKE_POST_FAIL') == '422': print('{"message":"Validation Failed","status":"422"}'); sys.exit(1)
     if os.environ.get('FAKE_POST_FAIL'): print('{"message":"Resource not accessible by integration","status":"403"}'); sys.exit(1)
+    if os.environ.get('FAKE_NEED_TOKEN') and os.environ.get('GH_TOKEN') != os.environ['FAKE_NEED_TOKEN']: print('{"message":"Resource not accessible by integration","status":"403"}'); sys.exit(1)
     if name in refs: sys.exit(1)
     refs[name] = fields['sha']; save('refs.json', refs)
 elif method == 'DELETE' and path.startswith('git/refs/'):
@@ -105,10 +107,28 @@ class E2eLockTest(unittest.TestCase):
     def test_a_lock_that_cannot_be_created_fails_with_the_reason_not_a_wait(self):
         # beta 16 (24 Oct 2026): creating the ref failed on the runner, gh's 404 body was read as "the holder", and 8 jobs "waited" for nobody for 5 minutes
         self.set_runs({'2': 'in_progress'})
-        failed = self.run_lock('acquire', '2', **{'FAKE_POST_FAIL': '1'})
+        failed = self.run_lock('acquire', '2', **{'FAKE_POST_FAIL': '422'})
         self.assertEqual(failed.returncode, 1)
-        self.assertIn('Resource not accessible by integration', failed.stderr)
+        self.assertIn('Validation Failed', failed.stderr)
         self.assertNotIn('waiting', failed.stdout)
+
+    def test_a_rerun_attempt_without_ref_rights_runs_without_the_lock_and_says_so(self):
+        # beta 17 (24 Oct 2026): the re-run of a job that took its lock on attempt 1 got 403 "Resource not accessible by integration" on creating the ref
+        self.set_runs({'2': 'in_progress'})
+        summary = self.tmp / 'summary.md'
+        passed = self.run_lock('acquire', '2', **{'FAKE_POST_FAIL': '1', 'GITHUB_RUN_ATTEMPT': '2', 'GITHUB_STEP_SUMMARY': str(summary)})
+        self.assertEqual(passed.returncode, 0, passed.stderr)
+        self.assertIn('WITHOUT its lock', passed.stderr)
+        self.assertIn('ran without the suite lock', summary.read_text())
+        self.assertEqual(self.refs(), {})
+
+    def test_the_apps_token_takes_the_lock_when_the_workflow_token_cannot(self):
+        self.set_runs({'2': 'in_progress'})
+        taken = self.run_lock('acquire', '2', **{'FAKE_NEED_TOKEN': 'app-token', 'GH_TOKEN': 'workflow-token', 'E2E_LOCK_TOKEN': 'app-token'})
+        self.assertEqual(taken.returncode, 0, taken.stderr)
+        self.assertEqual(len(self.refs()), 1)
+        released = self.run_lock('release', '2', **{'FAKE_NEED_TOKEN': 'app-token', 'GH_TOKEN': 'workflow-token', 'E2E_LOCK_TOKEN': 'app-token'})
+        self.assertEqual(self.refs(), {})
 
     def test_a_holder_whose_run_is_gone_is_taken_over(self):
         self.set_runs({'2': 'in_progress'})   # run 1 does not exist (404)
@@ -140,6 +160,11 @@ class SuiteJobsTakeTheLockTest(unittest.TestCase):
             release = job.split('tools/e2e-lock.sh release')[0].rsplit('- name:', 1)[-1] if 'tools/e2e-lock.sh release' in job else ''
             self.assertIn('if: always()', release, f'{workflow} {name}: the release step runs after a failure or a cancel')
             self.assertIn('contents: write', job, f'{workflow} {name}: creating the lock ref needs it')
+            # a re-run attempt's workflow token cannot create refs: both lock steps get the CI App's token, minted just before each
+            self.assertIn('id: lock_app\n', job, f'{workflow} {name}')
+            self.assertIn('id: lock_app_end\n', job, f'{workflow} {name}')
+            self.assertEqual(job.count('E2E_LOCK_TOKEN: ${{ steps.lock_app.outputs.token }}'), 1, f'{workflow} {name}')
+            self.assertEqual(job.count('E2E_LOCK_TOKEN: ${{ steps.lock_app_end.outputs.token }}'), 1, f'{workflow} {name}')
 
     def test_no_suite_job_queues_through_a_group_that_drops_a_waiter(self):
         for workflow, name in SUITE_JOBS:
