@@ -2,7 +2,7 @@
 // owns what only the setup has: the AI draft note, Regenerate draft and Replace my strategy. Guarded by test/setup-strategy.test.js.
 import {el, pill} from '../components.js';
 import {shared} from './shared.js';
-import {buildDraft, currentAnswers, showSearchStatus} from './activity.js';
+import {buildDraft, currentAnswers} from './activity.js';
 import {$, message, osText, show} from './core.js';
 import {loadJobs} from './jobs.js';
 import {openView} from './nav.js';
@@ -152,10 +152,9 @@ async function finishSetup() {
   hideCards();
   shared.state.settings = await window.pilot.saveSettings({setupDone: true});
   show($('wizard'), false); show($('app'));
+  openView('jobs');
   loadJobs();
-  // The first search starts now, on screen, so the list fills in while the user watches.
-  window.pilot.firstSearch();
-  showSearchStatus();
+  // Jobs opens on the big Find jobs card (pages/jobs-find.js): the first search starts when the person presses it (owner, 24 Oct 2026).
   import('./missing-facts-open.js').then(page => page.openOnceAfterSetup()).catch(() => {});   // the most important missing fact, asked once (lib/missing-facts.js)
 }
 

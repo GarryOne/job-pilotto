@@ -3,6 +3,7 @@
 // Guarded by: test/pipeline-run.test.js, test/run-stopped.test.js, test/stopped-head.test.js, test/stop-task.test.js, test/demo.test.js.
 // Split out of pipeline.js (a pure move); pipeline.js re-exports everything.
 import * as demo from './demo.js';
+import * as demoSearch from './demo-search.js';
 import * as engineLog from './engine-log.js';
 import {log as appLog} from './log.js';
 import {readResult} from './run-result.js';
@@ -42,6 +43,8 @@ export const stoppedReason = timedOut => `Stopped by Jobadabra: ${timedOut}. The
 // stdout is the caller's alone, never written to engine.log, onLine, the tail or a report (a store call's answer is the person's records;
 // logs say identities, never content). stderr is still logged: it is the engine's own words.
 export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterMs = 0, logArgs = null, privateOutput = false} = {}) {
+  if (isDemo() && demoSearch.isSearchRun(args)) return demoSearch.play(onLine);   // Find jobs in the demo: the scripted search (lib/demo-search.js)
+  if (isDemo() && demoSearch.isQuietStep(args)) return Promise.resolve({code: 0, stdout: ''});
   if (isDemo() && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [], shown = logArgs || args;
   const told = onLine;

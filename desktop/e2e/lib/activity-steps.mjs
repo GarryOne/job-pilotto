@@ -198,7 +198,7 @@ export async function prepare(ctx) {
   fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'scout_seeds.json'), path.join(ctx.profile, 'config', 'scout_seeds.json'));
   setFeed(ctx, []);
   await ctx.run('the app is quiet before the first task: no schedule, no first search, its history read', async () => {
-    // A set-up install starts its first search by itself, and a schedule catches up what is due: neither belongs in a count of "one click, one row".
+    // A set-up install's first search (pressed on the Find jobs card) and a schedule that catches up what is due: neither belongs in a count of "one click, one row".
     await page.evaluate(() => window.pilot.saveSettings({autoSearch: false, schedule: {search: 0, mail: 0, scout: 'off', insights: 'off'}}));
     await quiet(ctx, {forMs: 8000, maxMs: 300000});
   }, {needs: ctx.needs, critical: true});

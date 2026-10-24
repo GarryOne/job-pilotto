@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="menu.css">
 <link rel="stylesheet" href="actions-layout.css">
 <link rel="stylesheet" href="magic.css">
+<link rel="stylesheet" href="find-card.css">
 <link rel="stylesheet" href="setup-steps.css">
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
 </head>
@@ -324,7 +325,6 @@
       <div class="alert tone-info settings-alert search-changed" id="jobs-search-changed" hidden><i data-icon="refresh"></i>
         <div><strong>Your search changed</strong><p>Refresh your jobs to apply it: jobs outside your search are removed (not the ones you applied to or interview for), and new ones are found.</p></div>
         <button class="primary" data-refresh-jobs>Find jobs</button></div>
-      <section class="card find-card" id="find-card" aria-live="polite" hidden></section>
       <div class="ss-tips" id="tips-jobs" aria-label="Tips"></div>
       <div class="stat-cards">
         <button class="stat signal" data-stat="applied" aria-pressed="false"><span class="stat-icon"><i data-icon="send"></i></span><div><b id="stat-applied">–</b><span>Applied</span></div></button>
@@ -384,6 +384,8 @@
         </div>
         </div>
       </div>
+      <!-- The Find jobs card sits where the list appears (owner, 24 Oct 2026): the big card on a first run, the live search above the list as it fills. -->
+      <section class="card find-card" id="find-card" aria-live="polite" hidden></section>
       <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span>Actions</span></div>
       <div class="board shows-scrollbar" id="jobs-board" hidden></div>
       <div class="job-split" id="jobs-split">
