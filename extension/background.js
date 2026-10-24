@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {NO_APP, api, fillTab, settings} from './flow.js';
 import {plainWhy} from './ai-reply.js';
-import {oneFillPerTab} from './one-fill.js';
+import {oneFillPerTab, retireFill} from './one-fill.js';
 import {decide, pushDecisions} from './log.js';
 import {PANEL_FILES} from './panel-files.js';
 import {logFieldsLine} from './fill-fields.js';
@@ -160,6 +160,7 @@ if (chrome.webNavigation) {
   startRefusedReads();   // asks the app once an hour what refused sites are due; the app answers only when its setting is on (extension/refused-read.js)
   chrome.webNavigation.onCommitted.addListener(async details => {
     if (details.frameId !== 0) return;
+    retireFill(details.tabId);   // a new document: the fill running here belongs to the old one (extension/one-fill.js)
     const key = `armed:${details.tabId}`;
     if (!(await sessionGet(key))[key] || String(details.url).includes(`#${FILL_MARK}`)) return;
     let host = '';
