@@ -1,0 +1,12 @@
+/* Setup steps' shared parts: the lead as chips with a fold (step 1), the chosen-CV line on the CV card (step 2). The card itself is magic.css. Guard: test/setup-steps-lead.test.js. */
+.step-facts { margin: var(--sp-3) 0 0; padding: 0; list-style: none; }   /* the lead as chips: the facts, not a paragraph */
+.step-facts .icon { width: 14px; height: 14px; color: var(--signal); }
+.step-more { margin-top: var(--sp-2); padding: 0; border: 0; background: none; box-shadow: none; }
+.step-more summary { cursor: pointer; font-size: var(--fs-sm); color: var(--muted); }
+.step-more p { max-width: 72ch; margin: var(--sp-1) 0 0; }
+.cv-file { display: flex; align-items: center; gap: var(--sp-2); max-width: 100%; padding: var(--sp-2) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.cv-file[hidden] { display: none; }
+.cv-file b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-file .icon { color: var(--signal); flex: none; }
+.cv-drop .cv-kinds { display: inline-flex; align-items: center; gap: var(--sp-1); margin: 0; }
+.cv-drop .cv-kinds .icon { width: 14px; height: 14px; }

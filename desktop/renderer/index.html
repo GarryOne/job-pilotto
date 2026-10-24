@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="menu.css">
 <link rel="stylesheet" href="actions-layout.css">
 <link rel="stylesheet" href="magic.css">
+<link rel="stylesheet" href="setup-steps.css">
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
 </head>
 <body>
@@ -59,9 +60,9 @@
   </aside>
 
   <div class="step-body">
-    <div class="alert tone-good review-mode" id="review-mode" hidden><i data-icon="shield"></i>
-      <div><strong>Your setup is done.</strong> You're looking at it: nothing changes here unless you replace your
-      strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings instead.</div></div>
+    <div class="review-mode" id="review-mode" hidden><i data-icon="shield"></i>
+      <span><strong>Setup is done.</strong> You're reviewing it: nothing changes unless you replace your strategy at step 3, after a confirmation.</span>
+      <span class="fine">For small changes, edit your Profile or Search settings.</span></div>
     <div class="step" data-step="welcome">
       <div class="magic-stage">
       <div class="magic" data-magic>
@@ -104,8 +105,12 @@
       <header class="view-head step-head">
         <div><span class="eyebrow">Step 1 of 5</span>
           <h1>Connect your AI</h1>
-          <p class="muted subtitle">Jobadabra uses AI to read job postings, score them and draft answers. Start with Free (nothing to set up), or bring your own Claude or OpenAI:
-            an API key (you pay per use, usually a few dollars a month) or your own Claude Code / Codex (your Claude or ChatGPT plan).</p></div>
+          <p class="muted subtitle">The AI reads postings, scores them and drafts your answers.</p>
+          <ul class="chip-list step-facts" aria-label="Ways to connect">
+            <li class="chip-tag"><i data-icon="zap"></i>Free to start</li><li class="chip-tag"><i data-icon="key"></i>Your own API key</li><li class="chip-tag"><i data-icon="bot"></i>Your own AI plan</li></ul>
+          <details class="step-more"><summary>How each option works</summary>
+            <p class="muted small">Start with Free (nothing to set up), or bring your own Claude or OpenAI: an API key (you pay per use, usually a few dollars a month)
+              or your own Claude Code / Codex (your Claude or ChatGPT plan).</p></details></div>
       </header>
       <section class="card step-card engine" id="ai-engine"></section>
       <section class="card step-card" id="ai-key-part" hidden>
@@ -149,22 +154,24 @@
     </div>
 
     <div class="step" data-step="cv">
-      <header class="view-head step-head">
-        <div><span class="eyebrow">Step 2 of 5</span>
-          <h1>Your CV</h1>
-          <p class="muted subtitle">The AI reads it and proposes what you're looking for: roles, places, work mode, salary and languages. You check and correct them next.
-            It stays on this Mac<span data-notion-only> and in your Notion</span>; only the AI reads it when building your strategy.</p></div>
-      </header>
-      <section class="card step-card">
-        <div class="cv-pick">
-          <span class="ui-tile tone-signal"><i data-icon="file-text"></i></span>
-          <b id="cv-name">No CV chosen yet</b>
-          <button class="secondary with-icon" id="cv-choose"><i data-icon="upload"></i><span>Choose PDF…</span></button>
-        </div>
-      </section>
+      <div class="magic-stage">
+      <div class="magic cv-drop" data-magic>
+        <span class="magic-twinkle" aria-hidden="true"><i data-icon="sparkle"></i></span><span class="magic-twinkle" aria-hidden="true"><i data-icon="sparkle"></i></span><span class="magic-twinkle" aria-hidden="true"><i data-icon="sparkle"></i></span>
+        <span class="ui-tile tone-signal" aria-hidden="true"><i data-icon="file-text"></i></span>
+        <span class="eyebrow">Step 2 of 5</span>
+        <h1 class="magic-title">Your CV</h1>
+        <p class="muted magic-sub">The AI reads it for your roles, places and salary.</p>
+        <ul class="magic-steps" aria-label="What is read">
+          <li><i data-icon="target"></i>Roles</li><li><i data-icon="pin"></i>Places</li><li><i data-icon="briefcase"></i>Work mode</li><li><i data-icon="coins"></i>Salary</li><li><i data-icon="globe"></i>Languages</li>
+        </ul>
+        <div class="cv-file" id="cv-file" hidden><i data-icon="file-text"></i><b id="cv-name">No CV chosen yet</b><span class="muted small" id="cv-meta"></span></div>
+        <p class="fine cv-kinds"><i data-icon="shield"></i><span>Stays on this Mac<span data-notion-only> and in your Notion</span></span><span id="cv-kinds"></span></p>
+        <button class="primary magic-go" id="cv-choose" title="Only the AI reads it, when building your strategy."><span id="cv-choose-label">Choose your CV…</span></button>
+      </div>
       <div class="actions">
         <button class="ghost" data-back>Back</button>
         <button class="primary" id="cv-next" disabled>Continue</button>
+      </div>
       </div>
     </div>
 

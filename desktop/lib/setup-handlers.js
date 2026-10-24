@@ -18,6 +18,7 @@ import {refreshPath} from './fresh-path.js';
 import {checkOpenAiKey} from './ai/openai-api.js';
 import {log as appLog} from './log.js';
 import {registerNotifyHandlers} from './notify-handlers.js';   // Settings → Automation → Notifications
+import {CV_FILES} from '../renderer/cv-files.js';
 
 export function registerSetupHandlers(ctx) {
   const {DEMO, connectNotion, dialog, handleImportant, ipcMain, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom, keepLook, toWindow} = ctx;
@@ -110,7 +111,7 @@ export function registerSetupHandlers(ctx) {
     }
   });
   ipcMain.handle('chooseCv', async () => {
-    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose your CV', filters: [{name: 'PDF', extensions: ['pdf']}], properties: ['openFile']});
+    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose your CV', filters: [{name: CV_FILES.label, extensions: CV_FILES.extensions}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return null;
     // The file is set at once; the CV is read into cv.json in the background (lib/cv-import-at-upload.js), once per file.
     const {name} = atUpload.setCv(storage, picked.filePaths[0], path.basename(picked.filePaths[0]),
