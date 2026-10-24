@@ -43,4 +43,9 @@ same page count and size, fonts and sizes 100% of the original's, pixel drift �
 - [x] Font fallback chain (installed, download once, same-width twin downloaded once) (proof: desktop/test/pdf-edit-fonts.test.js)
 - [x] Wire into Tailor CV with the template fallback; review page on the real pages (proof: desktop/test/cv-inplace-run.test.js)
 - [x] Re-measure the 9 real samples on the Mac (local only), before/after to the owner: 8 readable PDFs, real tailoring, 90–100 where texts changed (today's template 13–61); two scored 100 with nothing changed, which led to summaries read per paragraph and the template when nothing is found (proof: desktop/test/cv-inplace.test.js)
-- [ ] Next step (separate PR): DOCX in place
+- [ ] Next step (separate PR): DOCX in place (owner 24 Oct 2026: edit the .docx in place, its PDF from our own renderer; picking the .docx on form upload is a later PR)
+  - [x] lib/docx: read paragraphs, find items, rewrite in each word's own style, reorder bullet paragraphs; made-up Word CVs (proof: desktop/test/docx-edit.test.js)
+  - [ ] Renderer: a .docx drawn to PDF in the hidden window (docx-preview), office fonts from the same-width twins
+  - [ ] Picking a .docx: saved as cv.docx, drawn to cv.pdf, imported as today; accept list in renderer/cv-files.js (shared with session 35's setup card)
+  - [ ] Tailor: the .docx path (prepare's room from the drawn PDF, edit, draw, review boxes on the drawn pages); template as fallback
+  - [ ] Real Word sample re-measured locally (numbers only)

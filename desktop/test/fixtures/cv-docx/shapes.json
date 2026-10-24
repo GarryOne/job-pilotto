@@ -1,0 +1,70 @@
+{
+ "classic": {
+  "cv": {
+   "name": "Henrik Aaltonen",
+   "location": "Tampere, Finland",
+   "summary": "Maintenance planner with **eleven years** in paper mills and food plants. I plan shutdowns that finish on time, keep spare parts honest and write work orders technicians can follow.",
+   "links": [{"text": "henrik.a@example.org", "href": "mailto:henrik.a@example.org"}],
+   "jobs": [
+    {"company": "Kuusi Paper Oy", "roles": [{"title": "Maintenance Planner", "period": "2018 – Present", "place": "", "bullets": [
+     "Planned four annual shutdowns of 12 days each with 300 contractors on site.",
+     "Cut emergency work orders from **35% to 18%** by moving routine checks into the weekly plan.",
+     "Set up the spare parts min/max levels in SAP PM with the stores team.",
+     "Trained six new planners on the work order process."]}]},
+    {"company": "Lahti Foods", "roles": [{"title": "Maintenance Technician", "period": "2012 – 2018", "place": "", "bullets": [
+     "Repaired filling and packing lines across two shifts.",
+     "Wrote step-by-step lockout guides for every line."]}]}
+   ],
+   "education": [],
+   "skills": "SAP PM, shutdown planning, reliability-centred maintenance",
+   "languages": "Finnish (native), English (fluent), Swedish (good)"
+  },
+  "tailoring": {
+   "summary": "Maintenance planner with **eleven years** in paper mills and food plants. I plan shutdowns that finish on time and keep spare parts honest in SAP PM.",
+   "jobs": [
+    {"company": "Kuusi Paper Oy", "roles": [{"title": "Maintenance Planner", "skills": "", "bullets": [
+     {"source": 2, "text": "Set up spare parts min/max levels in SAP PM with the stores team."},
+     {"source": 0, "text": "Planned four annual shutdowns of 12 days each with 300 contractors on site."},
+     {"source": 1, "text": "Cut emergency work orders from **35% to 18%** by moving routine checks into the weekly plan."},
+     {"source": 3, "text": "Trained six new planners on the work order process."}]}]},
+    {"company": "Lahti Foods", "roles": [{"title": "Maintenance Technician", "skills": "", "bullets": [
+     {"source": 1, "text": "Wrote step-by-step lockout guides for every line."},
+     {"source": 0, "text": "Repaired filling and packing lines across two shifts."}]}]}
+   ],
+   "changes": [{"where": "Summary", "change": "names SAP PM", "why": "the posting asks for SAP PM"}]
+  }
+ },
+ "table": {
+  "cv": {
+   "name": "Lucía Ferrer Vidal",
+   "location": "Valencia, Spain",
+   "summary": "Head chef with twelve years in hotel and restaurant kitchens across Spain.\nI like calm services, clear prep lists and menus built around the season.\n- Food cost and supplier negotiations.\n- Training young cooks.",
+   "links": [],
+   "jobs": [
+    {"company": "Casa Marina", "roles": [{"title": "Head Chef", "period": "2020 – Present", "place": "Valencia", "bullets": [
+     "Run a kitchen of 14 cooks serving 220 covers a night in summer.",
+     "Rewrote the menu every season with local suppliers; food cost fell from 34% to 29%.",
+     "Trained two sous chefs who now run their own kitchens."]}]},
+    {"company": "Hotel Alameda", "roles": [{"title": "Sous Chef", "period": "2015 – 2020", "place": "Seville", "bullets": [
+     "Ran the breakfast and banquet service for up to 400 guests.",
+     "Kept HACCP records ready for every inspection."]}]}
+   ],
+   "education": [],
+   "skills": "Menu planning, food cost, HACCP, team training",
+   "languages": "Spanish (native), English (good)"
+  },
+  "tailoring": {
+   "summary": "Head chef with twelve years in hotel kitchens across Spain.\nI like calm banquet services and clear prep lists.\n- Food cost and supplier negotiations.\n- Training young cooks.",
+   "jobs": [
+    {"company": "Casa Marina", "roles": [{"title": "Head Chef", "skills": "", "bullets": [
+     {"source": 1, "text": "Rewrote the menu each season with local suppliers; food cost fell from 34% to 29%."},
+     {"source": 0, "text": "Run a kitchen of 14 cooks serving 220 covers a night in summer."},
+     {"source": 2, "text": "Trained two sous chefs who now run their own kitchens."}]}]},
+    {"company": "Hotel Alameda", "roles": [{"title": "Sous Chef", "skills": "", "bullets": [
+     {"source": 0, "text": "Ran the breakfast and banquet service for up to 400 guests."},
+     {"source": 1, "text": "Kept HACCP records ready for every inspection."}]}]}
+   ],
+   "changes": [{"where": "Summary", "change": "leads with hotel kitchens", "why": "the posting is a hotel"}]
+  }
+ }
+}
